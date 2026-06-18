@@ -233,17 +233,7 @@ async def _handle_function_calls(decoded: dict, sts_ws):
             else:
                 result = {"error": f"Unknown function: {func_name}"}
 
-            # 1. Send the function result back to Deepgram Agent
-            response = {
-                "type":    "FunctionCallResponse",
-                "id":      func_id,
-                "name":    func_name,
-                "content": json.dumps(result)
-            }
-            await sts_ws.send(json.dumps(response))
-            logger.info("tool_result", tool=func_name, result=result)
-
-            # 2. Immediately inject a localized spoken response — eliminates silence gap
+            # 1. Immediately inject a localized spoken response — eliminates silence gap
             spoken = _build_spoken_response(func_name, result, arguments)
             if spoken:
                 inject = {
@@ -252,7 +242,25 @@ async def _handle_function_calls(decoded: dict, sts_ws):
                 }
                 await sts_ws.send(json.dumps(inject))
                 logger.info("inject", tool=func_name, spoken=spoken[:80] + "..." if len(spoken) > 80 else spoken)
-                print(f"[Bot]: {spoken}", flush=True)
+
+            # Mute the confirmation in the LLM's response if already injected/spoken to the user
+            llm_result = result
+            if spoken and not result.get("error"):
+                llm_result = {
+                    "status": "success",
+                    "message": "already spoken by system",
+                    "info": "The confirmation message has already been spoken to the user. DO NOT repeat the reschedule or booking details. Only ask if there is anything else they need."
+                }
+
+            # 2. Send the function result back to Deepgram Agent
+            response = {
+                "type":    "FunctionCallResponse",
+                "id":      func_id,
+                "name":    func_name,
+                "content": json.dumps(llm_result)
+            }
+            await sts_ws.send(json.dumps(response))
+            logger.info("tool_result", tool=func_name, result=result)
 
     except Exception as e:
         logger.error("tool_error", error=str(e))
