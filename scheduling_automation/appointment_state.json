@@ -183,5 +183,14 @@
   "PRED_CUST001_2026-06-19": {
     "prediction_message_sent": true,
     "prediction_status": "PENDING"
+  },
+  "CUST001_2026-06-19_04:00 PM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "SHORT_NOTICE"
+  },
+  "PRED_CUST001_2026-06-23": {
+    "prediction_status": "PENDING",
+    "prediction_message_sent": false
   }
 }

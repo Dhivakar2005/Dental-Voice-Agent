@@ -1079,6 +1079,11 @@ if __name__ == '__main__':
         logger.info("[SERVER] Automation ready")
         wa_watcher.check_for_changes()
         
+        print("\n" + "="*50)
+        print(" 🦷 Smile Dental Clinic Automation Server")
+        print(" Click here to open: http://localhost:5000")
+        print("="*50 + "\n", flush=True)
+        
         app.run(debug=False, host='0.0.0.0', port=5000)
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
