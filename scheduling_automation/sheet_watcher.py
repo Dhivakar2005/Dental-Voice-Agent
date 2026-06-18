@@ -39,7 +39,7 @@ SNAPSHOT_PATH     = os.path.join(os.path.dirname(__file__), "watcher_snapshot.js
 TOKEN_PATH        = os.path.join(os.path.dirname(__file__), "..", "token.pickle")
 SHEETS_CONFIG_PATH= os.path.join(os.path.dirname(__file__), "..", "sheets_config.json")
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SCOPES = ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/spreadsheets"]
 
 
 def _make_key(row: dict) -> str:
@@ -94,7 +94,7 @@ class SheetWatcher:
                     raise
             else:
                 raise RuntimeError("Google Sheets not authenticated. Run main app first.")
-        return build("sheets", "v4", credentials=creds)
+        return build("sheets", "v4", credentials=creds, cache_discovery=False, static_discovery=False)
 
     def _load_spreadsheet_id(self) -> str:
         with open(SHEETS_CONFIG_PATH, "r") as f:
@@ -162,6 +162,7 @@ class SheetWatcher:
                 "appointment_time":   str(row[4]).strip() if len(row) > 4 else "",
                 "appointment_reason": str(row[5]).strip() if len(row) > 5 else "",
                 "doctor":             str(row[6]).strip() if len(row) > 6 else "Unassigned",
+                "future_date":        str(row[7]).strip() if len(row) > 7 else "",
                 "type":               str(row[8]).strip() if len(row) > 8 else "BOOKED",
                 "status":             str(row[9]).strip().upper() if len(row) > 9 else "BOOKED",
                 "whatsapp_conf":      str(row[10]).strip().upper() if len(row) > 10 else "",

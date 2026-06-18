@@ -46,7 +46,7 @@ SHEETS_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "sheets_confi
 TOKEN_PATH = os.path.join(os.path.dirname(__file__), "..", "token.pickle")
 CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), "..", "credentials.json")
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SCOPES = ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/spreadsheets"]
 
 
 class FutureAppointmentsManager:
@@ -82,7 +82,7 @@ class FutureAppointmentsManager:
                     raise
             else:
                 raise RuntimeError("Google Sheets credentials not found. Run main app first.")
-        return build("sheets", "v4", credentials=creds)
+        return build("sheets", "v4", credentials=creds, cache_discovery=False, static_discovery=False)
 
     def _load_spreadsheet_id(self) -> str:
         """Load spreadsheet ID from sheets_config.json."""

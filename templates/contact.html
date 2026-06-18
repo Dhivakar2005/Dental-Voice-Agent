@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Us | Smile Dental{% endblock %}
+
+{% block content %}
+    <section class="hero reveal" style="padding: 160px 0 80px; background: var(--bg-soft); position: relative;">
+        <div class="container text-center">
+            <span class="eyebrow">Always Available</span>
+            <h1 class="section-title" style="font-size: clamp(2.5rem, 6vw, 4rem);">We'd Love to <span>Hear from You</span></h1>
+            <p class="section-subtitle" style="max-width: 800px; margin: 0 auto;">Have a question about a treatment or want to schedule a visit? Reach out through any of the channels below or visit our clinic.</p>
+        </div>
+    </section>
+
+    <section class="section-padding">
+        <div class="container">
+            <div class="contact-grid">
+                <div class="contact-info reveal">
+                    <div style="margin-bottom: 3rem;">
+                        <span class="eyebrow">Connect With Us</span>
+                        <h2 class="section-title">Visit Our <span>Clinic</span></h2>
+                        <p style="color: var(--text-muted); line-height: 1.8;">Our flagship clinic is located in the heart of Anna Nagar, designed to provide a serene and comfortable environment for all our patients.</p>
+                    </div>
+
+                    <div class="contact-card" style="border: 1px solid var(--bg-alt); padding: 2rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem;">
+                        <div class="contact-icon" style="background: var(--primary-glow);"><i class="fas fa-location-dot"></i></div>
+                        <div>
+                            <h4 style="margin-bottom: 5px; font-size: 1.2rem;">Our Location</h4>
+                            <p style="color: var(--text-muted); font-size: 0.95rem;">123 Smile Ave, Anna Nagar, Chennai, Tamil Nadu 600040</p>
+                            <a href="https://maps.google.com" target="_blank" style="color: var(--primary); font-weight: 700; font-size: 0.85rem; text-decoration: none; display: inline-block; margin-top: 10px;">Get Directions <i class="fas fa-external-link-alt" style="font-size: 0.7rem;"></i></a>
+                        </div>
+                    </div>
+
+                    <div class="contact-card" style="border: 1px solid var(--bg-alt); padding: 2rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem;">
+                        <div class="contact-icon" style="background: var(--primary-glow);"><i class="fas fa-phone"></i></div>
+                        <div>
+                            <h4 style="margin-bottom: 5px; font-size: 1.2rem;">Direct Lines</h4>
+                            <p style="color: var(--text-muted); font-size: 0.95rem;">Primary: +91 86100 80432</p>
+                            <p style="color: var(--text-muted); font-size: 0.95rem;">Emergency: +91 86100 80433</p>
+                        </div>
+                    </div>
+
+                    <div class="contact-card" style="border: 1px solid var(--bg-alt); padding: 2rem; border-radius: var(--radius-lg);">
+                        <div class="contact-icon" style="background: var(--primary-glow);"><i class="fas fa-clock"></i></div>
+                        <div>
+                            <h4 style="margin-bottom: 5px; font-size: 1.2rem;">Clinic Hours</h4>
+                            <p style="color: var(--text-muted); font-size: 0.95rem;">Mon - Sat: 9:00 AM - 5:00 PM</p>
+                            <p style="color: var(--text-muted); font-size: 0.95rem;">Sunday: Emergency Only</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="contact-map reveal" style="border-radius: var(--radius-lg); border: 8px solid white; box-shadow: var(--shadow-2xl); height: 100%; min-height: 500px;">
+                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3886.664426543169!2d80.20811567586524!3d13.0887638122421!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a526420556f26df%3A0xc3b15b5e7d23d4!2sAnna%20Nagar%2C%20Chennai%2C%20Tamil%20Nadu!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-padding" style="background: var(--bg-soft);">
+        <div class="container">
+            <div style="max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; background: white; border-radius: var(--radius-2xl); overflow: hidden; box-shadow: var(--shadow-2xl);">
+                <div style="background: var(--primary); padding: 5rem; color: white;">
+                    <h2 style="font-size: 2.5rem; margin-bottom: 2rem; font-family: var(--font-head);">Schedule Your <span>Visit</span></h2>
+                    <p style="opacity: 0.8; margin-bottom: 3rem; line-height: 1.8;">Our clinic is often fully booked. We recommend using our AI assistant for instant scheduling or leaving your details here for a callback.</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Fast & Secure Booking</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <i class="fas fa-check-circle"></i>
+                            <span>24/7 AI Assistance</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Instant Confirmation</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="padding: 5rem;">
+                    <form action="#" style="display: flex; flex-direction: column; gap: 2rem;">
+                        <div>
+                            <label style="display: block; margin-bottom: 0.75rem; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; color: var(--text-muted);">Full Name</label>
+                            <input type="text" placeholder="John Doe" style="width: 100%; padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--bg-alt); outline: none; transition: var(--transition-base);" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--bg-alt)'">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.75rem; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; color: var(--text-muted);">Phone Number</label>
+                            <input type="tel" placeholder="+91 XXXXX XXXXX" style="width: 100%; padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--bg-alt); outline: none; transition: var(--transition-base);" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--bg-alt)'">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 0.75rem; font-weight: 700; font-size: 0.9rem; text-transform: uppercase; color: var(--text-muted);">Your Message</label>
+                            <textarea placeholder="Tell us about your dental concerns..." rows="4" style="width: 100%; padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--bg-alt); outline: none; transition: var(--transition-base);" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--bg-alt)'"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1.5rem;">Request a Callback</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}

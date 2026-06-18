@@ -18,9 +18,14 @@ import requests as http_requests
 from twilio.twiml.voice_response import VoiceResponse, Connect, Stream
 from twilio.request_validator import RequestValidator
 
-from app import DentalVoiceAgent, VoiceInterface, OLLAMA_BASE_URL, OLLAMA_MODEL
+from app import DentalVoiceAgent, VoiceInterface
 from database_manager import DatabaseManager
-from voice_agent.dental_functions import FUNCTION_MAP as DENTAL_FUNCTION_MAP, reset_patient_session
+from voice_agent.dental_functions import (
+    FUNCTION_MAP as DENTAL_FUNCTION_MAP,
+    reset_patient_session,
+    set_call_language,
+    get_call_language,
+)
 import asyncio
 import base64
 import structlog
@@ -33,7 +38,14 @@ from scheduling_automation.scheduler         import build_scheduler
 from scheduling_automation.webhook_server    import register_automation_routes
 
 #  Multilingual Support 
-from language_service import get_deepgram_language_config, detect_language, get_language_instruction, normalize_input
+from language_service import (
+    get_deepgram_language_config,
+    detect_language,
+    get_language_instruction,
+    normalize_input,
+    get_tool_response,
+    get_multilingual_greeting,
+)
 
 #  APP SETUP      
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -102,6 +114,9 @@ def _load_voice_config() -> dict:
     config_path = os.path.join(os.path.dirname(__file__), "voice_agent", "dental_config.json")
     with open(config_path, "r", encoding="utf-8") as f:
         config = json.load(f)
+    
+    # Remove deprecated top-level language field to avoid conflict with provider language
+    config["agent"].pop("language", None)
 
     # 1. Inject today's date context
     today_context = _build_today_context()
@@ -114,8 +129,9 @@ def _load_voice_config() -> dict:
     # 3. Inject language rule at the START of the agent prompt
     lang_rule = (
         "LANGUAGE RULE: Detect the language the caller is speaking "
-        "(English, Tamil, or Hindi). Reply in the SAME language throughout the call. "
-        "If they switch languages, you switch too. Never mix languages in a single response.\n\n"
+        "(English, Tamil, or Hindi). Reply in the SAME language. "
+        "Indian patients often mix languages (Tanglish/Hindlish) — you should do the same "
+        "if it feels natural. Never use formal or robotic script for Tamil/Hindi.\n\n"
     )
     config["agent"]["think"]["prompt"] = lang_rule + config["agent"]["think"]["prompt"]
 
@@ -131,42 +147,67 @@ def _sts_connect():
         subprotocols=["token", DEEPGRAM_API_KEY]
     )
 
-# ─
 #  ASYNC HELPERS — Pharmacy-pattern three-task pipeline
-# ─
 async def _sts_sender(sts_ws, audio_queue: asyncio.Queue):
     """Forward inbound Twilio audio to Deepgram Agent."""
     while True:
         chunk = await audio_queue.get()
         await sts_ws.send(chunk)
+        # log every ~5 seconds (250 chunks * 20ms = 5s) to avoid flooding
+        if not hasattr(_sts_sender, "counter"): _sts_sender.counter = 0
+        _sts_sender.counter += 1
+        if _sts_sender.counter % 250 == 0:
+            logger.info("sts_sender_audio_sent", chunks=_sts_sender.counter)
 
 
-def _build_spoken_response(func_name: str, result: dict) -> str | None:
+def _build_spoken_response(func_name: str, result: dict, arguments: dict = None) -> str | None:
     """
-    Build a short, natural spoken sentence from a tool result.
+    Build a short, natural spoken sentence from a tool result in the caller's language.
     Injected immediately after FunctionCallResponse so the agent speaks
     without waiting for a new LLM inference cycle (zero silence gap).
     Returns None only if no injection is needed.
     """
-    # Every tool returns either {"result": "..."} or {"error": "..."}
-    # Use whichever is present.
-    spoken = result.get("result") or result.get("error")
+    lang = get_call_language()   # thread-local per call; 'en' if not yet detected
+    args = arguments or {}
 
-    #  verify_patient: override with a cleaner confirmation prompt ─
+    # ── verify_patient: always override with a clean localized confirmation ──
     if func_name == "verify_patient":
         if result.get("found"):
             name = result.get("name", "")
-            return f"I found your record. You are {name}. Is that correct?"
+            return get_tool_response("verify_found", lang, name=name)
         else:
-            return "I was not able to find a record with that number. Would you like to register as a new patient instead?"
+            return get_tool_response("verify_not_found", lang)
 
-    #  All other tools: use the pre-built natural sentence directly 
-    # lookup_appointments, book_appointment, reschedule_appointment,
-    # cancel_appointment all already return a full spoken sentence.
+    # ── Error passthrough (keep English for clarity) ──
+    if result.get("error"):
+        return result["error"]
+
+    # ── Booking: build localized confirmation from original arguments ──
+    if func_name == "book_appointment":
+        return get_tool_response(
+            "book_success", lang,
+            date=args.get("date", ""),
+            time=args.get("time", ""),
+        )
+
+    # ── Reschedule: use new_date / new_time from original arguments ──
+    if func_name == "reschedule_appointment":
+        return get_tool_response(
+            "reschedule_success", lang,
+            new_date=args.get("new_date", ""),
+            new_time=args.get("new_time", ""),
+        )
+
+    # ── Cancel: simple localized confirmation ──
+    if func_name == "cancel_appointment":
+        return get_tool_response("cancel_success", lang)
+
+    # ── lookup_appointments & get_available_slots: already localized in dental_functions ──
+    spoken = result.get("result") or result.get("error")
     if spoken:
         return spoken
 
-    return None   # let Deepgram handle it naturally if nothing to say
+    return None   # let Deepgram handle naturally if nothing to say
 
 
 
@@ -202,8 +243,8 @@ async def _handle_function_calls(decoded: dict, sts_ws):
             await sts_ws.send(json.dumps(response))
             logger.info("tool_result", tool=func_name, result=result)
 
-            # 2. Immediately inject a spoken response — eliminates silence gap
-            spoken = _build_spoken_response(func_name, result)
+            # 2. Immediately inject a localized spoken response — eliminates silence gap
+            spoken = _build_spoken_response(func_name, result, arguments)
             if spoken:
                 inject = {
                     "type":    "InjectAgentMessage",
@@ -211,6 +252,7 @@ async def _handle_function_calls(decoded: dict, sts_ws):
                 }
                 await sts_ws.send(json.dumps(inject))
                 logger.info("inject", tool=func_name, spoken=spoken[:80] + "..." if len(spoken) > 80 else spoken)
+                print(f"[Bot]: {spoken}", flush=True)
 
     except Exception as e:
         logger.error("tool_error", error=str(e))
@@ -239,6 +281,20 @@ async def _sts_receiver(sts_ws, twilio_ws, streamsid_queue: asyncio.Queue):
                 # Barge-in: clear Twilio's audio buffer so agent stops talking
                 clear_msg = {"event": "clear", "streamSid": streamsid}
                 await asyncio.to_thread(twilio_ws.send, json.dumps(clear_msg))
+
+            elif msg_type == "ConversationText":
+                # Detect language from the user's transcribed utterance and
+                # store it in the per-call thread-local session so all
+                # subsequent spoken injections reply in the right language.
+                role    = decoded.get("role", "")
+                content = decoded.get("content", "")
+                if role == "user" and content:
+                    lang = detect_language(content)
+                    set_call_language(lang)
+                    logger.info("call_language_detected", lang=lang, sample=repr(content[:40]))
+                    print(f"\n[User]: {content}", flush=True)
+                elif role == "assistant" and content:
+                    print(f"[Bot]: {content}", flush=True)
 
             elif msg_type == "FunctionCallRequest":
                 await _handle_function_calls(decoded, sts_ws)
@@ -282,6 +338,10 @@ async def _twilio_receiver(twilio_ws, audio_queue: asyncio.Queue, streamsid_queu
                 if media.get("track") == "inbound":
                     chunk = base64.b64decode(media["payload"])
                     inbuffer.extend(chunk)
+                    if not hasattr(_twilio_receiver, "counter"): _twilio_receiver.counter = 0
+                    _twilio_receiver.counter += 1
+                    if _twilio_receiver.counter % 250 == 0:
+                        logger.info("twilio_receiver_audio_received", chunks=_twilio_receiver.counter)
 
             elif event == "stop":
                 logger.info("twilio_stream_stopped")
@@ -350,91 +410,8 @@ db = DatabaseManager(app)
 sessions      = {}
 sessions_lock = threading.Lock()
 
-# OLLAMA MODEL AUTO-DETECT + WARM-UP
-import app as _app_module  # so we can patch the module-level constant at runtime
+#  SHARED SINGLETONS — Initialized once at startup
 
-def _get_available_ollama_models() -> list:
-    """Return list of model names currently pulled in Ollama."""
-    try:
-        r = http_requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
-        r.raise_for_status()
-        return [m["name"] for m in r.json().get("models", [])]
-    except Exception:
-        return []
-
-def _resolve_model(preferred: str, available: list) -> str:
-    """
-    Return 'preferred' if downloaded, otherwise fall back to the best
-    available model so the server never crashes at startup.
-    """
-    # Exact match
-    if preferred in available:
-        return preferred
-    # Prefix match (e.g. 'aya-expanse:8b' matches 'aya-expanse:8b-q4_0')
-    for m in available:
-        if m.startswith(preferred.split(":")[0]):
-            return m
-    # Fallback priority: phi3 > qwen > first available
-    for fallback in ["phi3:mini", "qwen3.5:0.8b"]:
-        if any(m.startswith(fallback.split(":")[0]) for m in available):
-            for m in available:
-                if m.startswith(fallback.split(":")[0]):
-                    return m
-    return available[0] if available else preferred
-
-def _pull_model_background(model: str):
-    """Pull a model in the background without blocking the server."""
-    try:
-        logger.info("[SERVER] Starting background pull", model=model)
-        http_requests.post(
-            f"{OLLAMA_BASE_URL}/api/pull",
-            json={"name": model},
-            timeout=1800  # 30 min max
-        )
-        logger.info("[SERVER] Background pull complete", model=model)
-        # Hot-swap the model once downloaded
-        _app_module.OLLAMA_MODEL = model
-        logger.info("[SERVER] Model hot-swapped", model=model)
-    except Exception as e:
-        logger.warning("background_pull_failed", model=model, error=str(e))
-
-def warmup_ollama():
-    """Detect available models, fall back gracefully, then warm up."""
-    available = _get_available_ollama_models()
-    resolved  = _resolve_model(OLLAMA_MODEL, available)
-
-    if resolved != OLLAMA_MODEL:
-        logger.warning(
-            "[SERVER] Preferred model not found, using fallback",
-            preferred=OLLAMA_MODEL, fallback=resolved
-        )
-        # Patch the runtime constant so all future calls use the fallback
-        _app_module.OLLAMA_MODEL = resolved
-        # Start pulling the preferred model quietly in the background
-        threading.Thread(
-            target=_pull_model_background, args=(OLLAMA_MODEL,), daemon=True
-        ).start()
-    else:
-        logger.info("[SERVER] Preferred model available", model=resolved)
-
-    # Warm up whichever model we resolved
-    try:
-        http_requests.post(
-            f"{OLLAMA_BASE_URL}/api/chat",
-            json={
-                "model":      _app_module.OLLAMA_MODEL,
-                "messages":   [{"role": "user", "content": "hi"}],
-                "stream":     False,
-                "keep_alive": -1,
-                "options":    {"num_predict": 1, "num_gpu": -1}
-            },
-            timeout=120
-        )
-        logger.info("[SERVER] Ollama ready", model=_app_module.OLLAMA_MODEL)
-    except Exception as e:
-        logger.warning("ollama_warm_up_failed", error=str(e))
-
-threading.Thread(target=warmup_ollama, daemon=True).start()
 
 #  SHARED SINGLETONS — Initialized once at startup
 from google_sheets_manager import GoogleSheetsManager
@@ -446,16 +423,10 @@ _shared_calendar = GoogleCalendarManager()
 _shared_sheets   = GoogleSheetsManager()
 _shared_vdb      = VectorDBManager()
 
-def ollama_heartbeat():
-    """Ping Ollama every 4 min to keep the model in VRAM (default unload = 5 min)."""
-    while True:
-        try:
-            time.sleep(240)
-            http_requests.post(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
-        except Exception:
-            pass
+# Pre-initialize the telephony functions agent singleton with the shared instances
+import voice_agent.dental_functions as df
+df.initialize_agent(_shared_calendar, _shared_sheets, _shared_vdb)
 
-threading.Thread(target=ollama_heartbeat, daemon=True).start()
 
 #  SESSION CLEANUP 
 def cleanup_sessions():
@@ -506,7 +477,7 @@ class WebVoiceAgent:
         try:
             # 1. Detect language
             self.detected_language = detect_language(user_message)
-            # 2. Normalize Tamil/Hindi → English for aya-expanse:8b, keep English tokens for it
+            # 2. Normalize Tamil/Hindi → English for the cloud LLM, keep English tokens for it
             normalized = normalize_input(user_message, self.detected_language)
             # 3. Append reply-language instruction
             lang_hint = get_language_instruction(self.detected_language)
@@ -529,7 +500,7 @@ class WebVoiceAgent:
         self.last_active = time.time()
         # 1. Detect language
         self.detected_language = detect_language(user_message)
-        # 2. Normalize Tamil/Hindi → English for aya-expanse:8b
+        # 2. Normalize Tamil/Hindi → English for the cloud LLM
         normalized = normalize_input(user_message, self.detected_language)
         # 3. Append reply-language instruction
         lang_hint = get_language_instruction(self.detected_language)
@@ -642,7 +613,205 @@ def index():
     if not payload:
         return render_template('login.html', type='signin')
         
-    return render_template('index.html', user_name=payload.get('name', 'User'), role=payload.get('role'))
+    return render_template('index.html', 
+                           services=SERVICE_DATA,
+                           blogs=BLOG_DATA,
+                           user_name=payload.get('name', 'User'), 
+                           role=payload.get('role'))
+
+# SERVICE DATA FOR DETAIL PAGES
+SERVICE_DATA = {
+    "general-checkup": {
+        "title": "General Checkup & Diagnostics",
+        "description": "Our comprehensive general checkup is the first step towards a lifetime of healthy smiles. We use advanced diagnostic tools to detect issues before they become problems.",
+        "image": "home_general_dentistry_1777381064292.png",
+        "before_after": "clinical_safety_standards_1777382360686.png",
+        "pricing": "₹500 - ₹1,500",
+        "benefits": ["Early detection of cavities", "Gum disease assessment", "Oral cancer screening"],
+        "process": ["Visual Examination", "Digital X-Rays (if needed)", "Professional Scaling", "Personalized Care Plan"]
+    },
+    "teeth-whitening": {
+        "title": "Professional Teeth Whitening",
+        "description": "Achieve a dazzling white smile with our professional whitening treatments. We use safe, medical-grade gels and laser technology for instant results.",
+        "image": "home_cosmetic_dentistry_1777381099653.png",
+        "before_after": "whitening_before_after_1777377892572.png",
+        "pricing": "₹5,000 - ₹12,000",
+        "benefits": ["Removes deep stains", "Safe for enamel", "Long-lasting results"],
+        "process": ["Shade Assessment", "Gum Protection", "Gel Application", "Laser Activation"]
+    },
+    "root-canal": {
+        "title": "Root Canal Treatment",
+        "description": "Save your natural teeth with our painless root canal procedures. Our endodontic specialists use micro-dentistry for high precision and comfort.",
+        "image": "root_canal_overview_1777378048001.png",
+        "before_after": "root_canal_overview_1777378048001.png",
+        "pricing": "₹4,000 - ₹8,000",
+        "benefits": ["Stops tooth pain", "Prevents infection spread", "Restores tooth function"],
+        "process": ["Pulp Removal", "Canal Cleaning", "Filling & Sealing", "Crown Placement"]
+    },
+    "orthodontics": {
+        "title": "Orthodontics & Clear Aligners",
+        "description": "Get the perfectly aligned smile you've always wanted. We offer traditional braces and modern, nearly invisible clear aligners like Invisalign.",
+        "image": "service_orthodontics_1777381263731.png",
+        "before_after": "orthodontics_before_after_1777378021769.png",
+        "pricing": "₹25,000 - ₹1,50,000",
+        "benefits": ["Corrects bite issues", "Improves aesthetics", "Prevents jaw problems"],
+        "process": ["3D Digital Scan", "Custom Treatment Plan", "Aligner/Braces Fitting", "Periodic Adjustments"]
+    },
+    "dental-implants": {
+        "title": "Advanced Dental Implants",
+        "description": "The gold standard for tooth replacement. Our implants look, feel, and function like natural teeth, providing a permanent solution for missing teeth.",
+        "image": "home_dental_implants_1777381145965.png",
+        "before_after": "implant_before_after_1777377937850.png",
+        "pricing": "₹20,000 - ₹45,000 per implant",
+        "benefits": ["Prevents bone loss", "Restores chewing ability", "Natural appearance"],
+        "process": ["Consultation & Planning", "Surgical Placement", "Healing Period", "Crown Restoration"]
+    },
+    "pediatric-care": {
+        "title": "Gentle Pediatric Care",
+        "description": "We specialize in making dental visits fun and stress-free for children. Our gentle approach helps kids develop positive lifelong dental habits.",
+        "image": "hero_patient.png",
+        "before_after": "hero_patient.png",
+        "pricing": "₹800 - ₹3,000",
+        "benefits": ["Fear-free experience", "Preventive sealants", "Growth monitoring"],
+        "process": ["Playful Introduction", "Gentle Cleaning", "Fluoride Treatment", "Parent Education"]
+    },
+    "wisdom-tooth": {
+        "title": "Wisdom Tooth Removal",
+        "description": "Safe and comfortable surgical removal of impacted or problematic wisdom teeth. We use precision techniques to minimize recovery time and discomfort.",
+        "image": "service_surgery_1777381290449.png",
+        "before_after": "root_canal_overview_1777378048001.png",
+        "pricing": "₹3,500 - ₹8,000",
+        "benefits": ["Relieves jaw pain", "Prevents crowding", "Stops recurring infections"],
+        "process": ["Diagnostic X-Ray", "Painless Anesthesia", "Precise Extraction", "Post-Op Care Guide"]
+    }
+}
+
+BLOG_DATA = [
+    {
+        "id": 1,
+        "title": "The Secret to a Lifetime of Healthy Smiles",
+        "excerpt": "Discover the essential habits that go beyond just brushing and flossing to keep your teeth and gums in peak condition.",
+        "content": "Regular dental checkups are the cornerstone of oral health. While brushing twice a day and flossing are vital, professional cleanings remove plaque and tartar that your toothbrush simply can't reach. Moreover, early detection of issues like gum disease or cavities can save you from complex procedures later on. Visit Smile Dental twice a year to ensure your smile remains bright and healthy.",
+        "image": "blog_healthy_smiles.png",
+        "date": "May 1, 2026",
+        "author": "Dr. Sarah Johnson",
+        "category": "Oral Health"
+    },
+    {
+        "id": 2,
+        "title": "Modern Orthodontics: Braces vs. Clear Aligners",
+        "excerpt": "Choosing between traditional braces and Invisalign? We break down the pros and cons to help you decide which is right for you.",
+        "content": "Straightening your teeth is no longer just for teenagers. With advancements in orthodontic technology, adults have more options than ever. Traditional metal braces remain highly effective for complex cases, while clear aligners like Invisalign offer a nearly invisible solution for those concerned about aesthetics. Both systems aim to improve not just your look, but also your bite and long-term dental health.",
+        "image": "blog_orthodontics.png",
+        "date": "April 25, 2026",
+        "author": "Dr. Robert Chen",
+        "category": "Orthodontics"
+    },
+    {
+        "id": 3,
+        "title": "5 Myths About Root Canal Treatment Debunked",
+        "excerpt": "Is a root canal really as scary as people say? We separate fact from fiction to ease your dental anxiety.",
+        "content": "The phrase 'root canal' often strikes fear, but modern endodontic treatment is actually quite similar to getting a deep filling. Thanks to advanced anesthesia and precision tools, most patients report that the procedure is painless. A root canal saves your natural tooth by removing infected pulp, preventing the need for extraction and maintaining your natural smile.",
+        "image": "blog_root_canal.png",
+        "date": "April 15, 2026",
+        "author": "Dr. Emily Williams",
+        "category": "Treatments"
+    },
+    {
+        "id": 4,
+        "title": "Pediatric Dentistry: Setting Your Child Up for Success",
+        "excerpt": "Your child's first dental visit is a milestone. Learn how to prepare them for a positive experience and lifelong healthy habits.",
+        "content": "The American Academy of Pediatric Dentistry recommends a child's first visit by their first birthday. Early visits help children become familiar with the dental environment and allow us to monitor jaw development. We use gentle, playful techniques to ensure your little ones feel safe and even have fun while learning about their teeth.",
+        "image": "blog_pediatric.png",
+        "date": "April 10, 2026",
+        "author": "Dr. Michael Brown",
+        "category": "Pediatric Care"
+    },
+    {
+        "id": 5,
+        "title": "The Future of Smile Restoration: Dental Implants",
+        "excerpt": "Missing a tooth? Dental implants are the gold standard for replacement. Find out why they are the preferred choice for specialists.",
+        "content": "Unlike dentures or bridges, dental implants replace the root of the tooth, providing a stable foundation and preventing bone loss in the jaw. They look and function exactly like natural teeth, allowing you to eat, speak, and smile with absolute confidence. It's a permanent solution that restores both the beauty and function of your mouth.",
+        "image": "blog_implants.png",
+        "date": "April 5, 2026",
+        "author": "Dr. Sarah Johnson",
+        "category": "Implants"
+    }
+]
+
+
+
+@app.route('/about')
+def about():
+    token = request.cookies.get('jwt_token')
+    payload = db.decode_token(token) if token else None
+    return render_template('about.html', user_name=payload.get('name') if payload else None, role=payload.get('role') if payload else None)
+
+@app.route('/contact')
+def contact():
+    token = request.cookies.get('jwt_token')
+    payload = db.decode_token(token) if token else None
+    return render_template('contact.html', user_name=payload.get('name') if payload else None, role=payload.get('role') if payload else None)
+
+@app.route('/blog')
+def blog():
+    token = request.cookies.get('jwt_token')
+    payload = db.decode_token(token) if token else None
+    return render_template('blog.html', 
+                           blogs=BLOG_DATA,
+                           user_name=payload.get('name') if payload else None, 
+                           role=payload.get('role') if payload else None)
+
+@app.route('/services/<service_slug>')
+def service_detail(service_slug):
+    token = request.cookies.get('jwt_token')
+    payload = db.decode_token(token) if token else None
+    
+    service = SERVICE_DATA.get(service_slug)
+    if not service:
+        return render_template('404.html'), 404
+        
+    return render_template('service_detail.html', 
+                           service=service, 
+                           user_name=payload.get('name') if payload else None, 
+                           role=payload.get('role') if payload else None)
+
+#  STT API ENDPOINT (Deepgram Nova-3) 
+@app.route('/api/stt', methods=['POST'])
+def speech_to_text():
+    """Converts uploaded audio to text using Deepgram Nova-3."""
+    if 'audio' not in request.files:
+        return jsonify({"success": False, "error": "No audio file provided"}), 400
+    
+    audio_file = request.files['audio']
+    if not DEEPGRAM_API_KEY:
+        return jsonify({"success": False, "error": "Deepgram API key not configured"}), 500
+
+    try:
+        # Call Deepgram Pre-recorded API
+        # We use detect_language=true and smart_format=true for best multilingual results
+        deepgram_base = os.getenv("DEEPGRAM_BASE_URL", "https://api.deepgram.com")
+        url = f"{deepgram_base}/v1/listen?model=nova-3&smart_format=true&detect_language=true"
+        headers = {
+            "Authorization": f"Token {DEEPGRAM_API_KEY}",
+            "Content-Type": audio_file.content_type or "audio/webm"
+        }
+        
+        response = http_requests.post(url, headers=headers, data=audio_file.read())
+        response.raise_for_status()
+        
+        data = response.json()
+        transcript = data.get('results', {}).get('channels', [{}])[0].get('alternatives', [{}])[0].get('transcript', '')
+        
+        if not transcript:
+            return jsonify({"success": True, "transcript": "", "error": "No speech detected"})
+
+        logger.info("web_stt_transcription_success", length=len(transcript))
+        return jsonify({"success": True, "transcript": transcript})
+
+    except Exception as e:
+        logger.error("web_stt_error", error=str(e))
+        return jsonify({"success": False, "error": str(e)}), 500
 
 #  ADMIN ROUTES 
 @app.route('/admin')
@@ -856,7 +1025,7 @@ def twilio_voice():
     host = (
         request.headers.get("X-Forwarded-Host")
         or request.headers.get("X-Forwarding-Host")
-        or request.url.hostname
+        or request.host
     )
     # Strip port if already included in the host header
     if host and ':' in host:
@@ -909,7 +1078,17 @@ if __name__ == '__main__':
         wa_scheduler.start()
         logger.info("[SERVER] Automation ready")
         wa_watcher.check_for_changes()
-    except Exception:
-        logger.error("automation_error")
-
-    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+        
+        app.run(debug=False, host='0.0.0.0', port=5000)
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+    except Exception as e:
+        logger.error("fatal_server_error", error=str(e), tb=traceback.format_exc())
+        print(f"\n[CRITICAL SERVER ERROR]: {e}")
+        traceback.print_exc()
+    finally:
+        print("\n" + "="*50)
+        try:
+            input("Server process finished. Press Enter to close this window...")
+        except (EOFError, KeyboardInterrupt):
+            pass

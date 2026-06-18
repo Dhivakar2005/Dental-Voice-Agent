@@ -105,5 +105,83 @@
     "confirmation_sent": true,
     "reminder_sent": true,
     "reminder_mode": "SHORT_NOTICE"
+  },
+  "CUST001_2026-04-15_2:00 PM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "SHORT_NOTICE"
+  },
+  "CUST001_2026-04-15_3:00 PM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "SHORT_NOTICE"
+  },
+  "CUST001_2026-04-17_3:00 PM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "NORMAL"
+  },
+  "CUST001_2026-04-17_11:00 AM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "SHORT_NOTICE"
+  },
+  "CUST001_2026-04-18_2:00 PM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "SHORT_NOTICE"
+  },
+  "CUST001_2026-04-25_predicted": {
+    "prediction_status": "PENDING",
+    "prediction_message_sent": false
+  },
+  "CUST001_2026-04-20_10:00 AM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "SHORT_NOTICE"
+  },
+  "PRED_CUST001_2026-04-20": {
+    "prediction_message_sent": true,
+    "prediction_status": "CONFIRMED"
+  },
+  "CUST001_2026-04-27_10:00 AM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "SHORT_NOTICE"
+  },
+  "PRED_CUST001_2026-05-01": {
+    "prediction_status": "PENDING",
+    "prediction_message_sent": false
+  },
+  "CUST001_2026-04-30_4:00 PM": {
+    "confirmation_sent": true
+  },
+  "PRED_CUST001_2026-05-04": {
+    "prediction_status": "PENDING",
+    "prediction_message_sent": true
+  },
+  "CUST001_2026-04-28_9:00 AM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "SHORT_NOTICE"
+  },
+  "CUST001_2026-06-17_11:00 AM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "SHORT_NOTICE"
+  },
+  "CUST001_2026-06-17_2:00 PM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "SHORT_NOTICE"
+  },
+  "CUST001_2026-06-19_9:00 AM": {
+    "confirmation_sent": true,
+    "reminder_sent": true,
+    "reminder_mode": "SHORT_NOTICE"
+  },
+  "PRED_CUST001_2026-06-19": {
+    "prediction_message_sent": true,
+    "prediction_status": "PENDING"
   }
 }

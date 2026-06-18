@@ -16,6 +16,9 @@ import structlog
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 
+from scheduling_automation.whatsapp_service import get_media_url, download_media
+from language_service import transcribe_audio
+
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "smiledentalwebhook2026")
@@ -74,6 +77,16 @@ def register_automation_routes(app, engine):
                     msg_text = interactive.get("button_reply", {}).get("title", "").strip()
                 elif interactive.get("type") == "list_reply":
                     msg_text = interactive.get("list_reply", {}).get("title", "").strip()
+            elif msg_type == "audio":
+                media_id = msg.get("audio", {}).get("id")
+                if media_id:
+                    logger.info(f"[WA-WEBHOOK] 🎤 Voice message received (ID: {media_id})")
+                    media_url = get_media_url(media_id)
+                    if media_url:
+                        audio_content = download_media(media_url)
+                        if audio_content:
+                            msg_text = transcribe_audio(audio_content)
+                            logger.info(f"[WA-WEBHOOK] 📝 Transcribed: '{msg_text}'")
 
             if not sender_phone or not msg_text:
                 return jsonify({"status": "ok"}), 200

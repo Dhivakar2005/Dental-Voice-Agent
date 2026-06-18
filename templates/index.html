@@ -1,420 +1,268 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smile Dental — Live Bold. Smile Louder.</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Righteous&family=Nunito:wght@300;400;600;800&family=Caveat:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
-</head>
-<body>
+{% extends "base.html" %}
 
-  <!-- ═══ CUSTOM CURSOR ═══ -->
-  <div id="cursor"></div>
-  <div id="cursorTrail"></div>
-  <div id="smileBlast" class="smile-blast">
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-  </div>
+{% block title %}Home | Smile Dental — Premium Dental Care{% endblock %}
 
-  <!-- ═══ FLOATING PARTICLES ═══ -->
-  <canvas id="particleCanvas"></canvas>
-
-  <!-- ═══ NAV ═══ -->
-  <nav class="navbar" id="navbar">
-    <div class="nav-inner">
-      <a href="/" class="logo">
-        <svg class="logo-mark" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2v20M2 12h20M7 7l10 10M7 17L17 7"/>
-          <circle cx="12" cy="12" r="10" stroke-width="1.5" opacity="0.5"/>
-        </svg>
-        <span class="logo-text">Smile <em>Dental</em></span>
-      </a>
-      <ul class="nav-links">
-        <li><a href="#hero" class="nav-link" data-text="Home">Home</a></li>
-        <li><a href="#services" class="nav-link" data-text="Services">Services</a></li>
-        <li><a href="#team" class="nav-link" data-text="Team">Team</a></li>
-        <li><a href="#contact" class="nav-link" data-text="Contact">Contact</a></li>
-      </ul>
-      <div class="nav-right">
-        <a href="javascript:void(0)" onclick="openBookingModal()" class="btn-book">
-          <span class="btn-book-inner">Book Now ✦</span>
-        </a>
-        {% if user_name %}
-        <div class="user-profile">
-          <div class="user-pill" id="userPillToggle">{{ user_name }}</div>
-          <div class="user-dropdown" id="userProfileDropdown">
-            {% if role == 'admin' %}
-            <a href="/admin" class="dropdown-item">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              Command Center
-            </a>
-            {% endif %}
-            <a href="/logout" class="dropdown-item logout">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              Sign Out
-            </a>
-          </div>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-  </nav>
-
-  <!-- ═══ HERO ═══ -->
-  <section class="hero" id="hero">
-    <div class="hero-bg-grid"></div>
-    <div class="hero-bg-img"></div>
-    <div class="hero-orb orb-1"></div>
-    <div class="hero-orb orb-2"></div>
-    <div class="hero-orb orb-3"></div>
-
-    <div class="hero-content" data-parallax="0.3">
-      <div class="hero-eyebrow reveal-up">✦ Premium Dental Care ✦</div>
-      <h1 class="hero-h1" data-parallax="0.15">
-        <span class="hero-line reveal-up delay-1">Live <em>Bold.</em></span>
-        <span class="hero-line reveal-up delay-2">Smile <em>Louder.</em></span>
-      </h1>
-      <p class="hero-sub reveal-up delay-3">
-        Where science meets soul — crafting smiles that stop the world.
-        Next-gen care in a vibe-first space you'll actually love coming to.
-      </p>
-      <div class="hero-ctas reveal-up delay-4">
-        <a href="javascript:void(0)" onclick="openBookingModal()" class="cta-primary">
-          <span>Get Your Glow-Up →</span>
-        </a>
-        <a href="#services" class="cta-secondary">
-          <span>Explore Services</span>
-        </a>
-      </div>
-      <div class="hero-stats reveal-up delay-5">
-        <div class="hstat"><span class="hstat-num">14K+</span><span class="hstat-label">Happy Patients</span></div>
-        <div class="hstat-div"></div>
-        <div class="hstat"><span class="hstat-num">20+</span><span class="hstat-label">Years of Excellence</span></div>
-        <div class="hstat-div"></div>
-        <div class="hstat"><span class="hstat-num">71+</span><span class="hstat-label">Awards Won</span></div>
-      </div>
-    </div>
-
-
-    <a href="#ticker" class="hero-scroll-hint" id="heroScrollHint">
-      <span>scroll</span>
-      <div class="scroll-line"></div>
-    </a>
-  </section>
-
-  <!-- ═══ TICKER ═══ -->
-  <div class="ticker-wrap" id="ticker">
-    <div class="ticker-track">
-      <span>✦ General Checkup</span><span>✦ Root Canal</span><span>✦ Orthodontics</span>
-      <span>✦ Teeth Whitening</span><span>✦ Dental Implants</span><span>✦ Scaling & Polish</span>
-      <span>✦ Pediatric Care</span><span>✦ Braces & Aligners</span><span>✦ Emergency Care</span>
-      <span>✦ General Checkup</span><span>✦ Root Canal</span><span>✦ Orthodontics</span>
-      <span>✦ Teeth Whitening</span><span>✦ Dental Implants</span><span>✦ Scaling & Polish</span>
-      <span>✦ Pediatric Care</span><span>✦ Braces & Aligners</span><span>✦ Emergency Care</span>
-    </div>
-  </div>
-
-  <!-- ═══ ABOUT COMPACT ═══ -->
-  <section class="about-section" id="about">
-    <div class="about-left" data-parallax="0.1">
-      <div class="glass-panel about-glass reveal-up">
-        <div class="about-tag">✦ Precision & Passion</div>
-        <h2 class="section-h2">The <em>Science</em> of Art.</h2>
-        <p class="about-body">
-          We combine cutting-edge dental technology with an artist's eye for detail. 
-          Expect a vibration-free, premium environment where your comfort is as vital as your results.
-        </p>
-        <div class="about-pills">
-          <span class="pill">✦ Zero Wait</span>
-          <span class="pill">✦ 3D Scanning</span>
-          <span class="pill">✦ Specialists Only</span>
-        </div>
-        <a href="javascript:void(0)" onclick="openBookingModal()" class="cta-primary mt-24">Experience It ✦</a>
-      </div>
-    </div>
-    <div class="about-right" data-parallax="0.2">
-      <div class="about-img-stack reveal-right">
-        <img src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&auto=format&fit=crop"
-          alt="Clinic Setup" class="about-img about-img-main" />
-        <div class="glass-card about-float-card" style="bottom: 20px; left: -20px; padding: 12px 20px;">
-          <span class="float-num" style="font-size: 1.6rem;">14K+</span>
-          <span class="float-label" style="font-size: 0.65rem;">Patients</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══ SERVICES ═══ -->
-  <section class="services-section" id="services">
-    <div class="services-header reveal-up">
-      <span class="eyebrow-tag">✦ What We Do</span>
-      <h2 class="section-h2">Our <em>Signature</em><br/>Services.</h2>
-    </div>
-    <div class="services-grid">
-      <div class="service-card glass-card reveal-up delay-1" onclick="smileBlastAt(event)">
-        <div class="sc-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10c0-1.657 1.343-3 3-3s3 1.343 3 3-1.343 3-3 3-3-1.343-3-3zM17 10c0-1.657 1.343-3 3-3s3 1.343 3 3-1.343 3-3 3-3-1.343-3-3zM7 16c0 2.209 2.239 4 5 4s5-1.791 5-4"/></svg>
-        </div>
-        <h3>General Checkup</h3>
-        <p>Full oral health assessment with digital X-ray and personalised care plan.</p>
-        <span class="sc-arrow">→</span>
-      </div>
-      <div class="service-card glass-card reveal-up delay-2" onclick="smileBlastAt(event)">
-        <div class="sc-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-        </div>
-        <h3>Teeth Whitening</h3>
-        <p>Professional-grade whitening that delivers 8 shades brighter in one session.</p>
-        <span class="sc-arrow">→</span>
-      </div>
-      <div class="service-card glass-card reveal-up delay-3" onclick="smileBlastAt(event)">
-        <div class="sc-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-        </div>
-        <h3>Root Canal</h3>
-        <p>Pain-free endodontic therapy with rotary instruments and apex locators.</p>
-        <span class="sc-arrow">→</span>
-      </div>
-      <div class="service-card glass-card reveal-up delay-1" onclick="smileBlastAt(event)">
-        <div class="sc-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6.1H3"/><path d="M21 12.1H3"/><path d="M21 18.1H3"/></svg>
-        </div>
-        <h3>Orthodontics</h3>
-        <p>Invisible aligners and precision braces for a perfectly aligned smile.</p>
-        <span class="sc-arrow">→</span>
-      </div>
-      <div class="service-card glass-card reveal-up delay-2" onclick="smileBlastAt(event)">
-        <div class="sc-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-        </div>
-        <h3>Pediatric Care</h3>
-        <p>Child-friendly treatments in a fun, calm space designed for little ones.</p>
-        <span class="sc-arrow">→</span>
-      </div>
-      <div class="service-card glass-card reveal-up delay-3" onclick="smileBlastAt(event)">
-        <div class="sc-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M11 3 8 9l4 12 4-12-3-6"/><path d="M2 9h20"/></svg>
-        </div>
-        <h3>Dental Implants</h3>
-        <p>Permanent, natural-looking implants crafted from medical-grade titanium.</p>
-        <span class="sc-arrow">→</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══ PROCESS ═══ -->
-  <section class="process-section">
-    <div class="process-header reveal-up">
-      <span class="eyebrow-tag">✦ How It Works</span>
-      <h2 class="section-h2">4 Steps to<br/><em>Your Best Smile.</em></h2>
-    </div>
-    <div class="process-steps">
-      <div class="process-step reveal-up">
-        <div class="ps-num">01</div>
-        <div class="ps-content">
-          <h3>Meet & Greet</h3>
-          <p>A warm welcome with a refreshment from our bar while we prep your space.</p>
-        </div>
-      </div>
-      <div class="process-step reveal-up delay-1">
-        <div class="ps-num">02</div>
-        <div class="ps-content">
-          <h3>Real-Time Scan</h3>
-          <p>No goopy molds. Our iTero scanners create a 3D map of your teeth in seconds.</p>
-        </div>
-      </div>
-      <div class="process-step reveal-up delay-2">
-        <div class="ps-num">03</div>
-        <div class="ps-content">
-          <h3>Jet Treatment</h3>
-          <p>Air-flow technology cleans with precision, removing stains without any scraping.</p>
-        </div>
-      </div>
-      <div class="process-step reveal-up delay-3">
-        <div class="ps-num">04</div>
-        <div class="ps-content">
-          <h3>Glow & Go</h3>
-          <p>Walk out with a custom care plan and a smile that's ready for any spotlight.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══ PARALLAX MARQUEE QUOTE ═══ -->
-  <section class="quote-section" data-parallax="0.2">
-    <div class="quote-bg-orb"></div>
-    <blockquote class="big-quote reveal-up">
-      <em>"Your smile is the most powerful thing<br/>you wear every single day."</em>
-    </blockquote>
-    <p class="quote-attr reveal-up delay-1">— The Smile Dental Philosophy</p>
-  </section>
-
-  <!-- ═══ TEAM ═══ -->
-  <section class="team-section" id="team">
-    <div class="team-header reveal-up">
-      <span class="eyebrow-tag">✦ The Crew</span>
-      <h2 class="section-h2">Meet the<br/><em>Smile Makers.</em></h2>
-    </div>
-    <div class="team-grid">
-      <div class="team-card reveal-up delay-1">
-        <div class="tc-img-wrap">
-          <img src="{{ url_for('static', filename='images/d1.jpg') }}" alt="Dr. Young" data-parallax="0.1" />
-        </div>
-        <div class="tc-info">
-          <div class="pantone-label">PANTONE<span>®</span></div>
-          <div class="tc-name">Alisha Owen — Ortho.</div>
-          <div class="tc-meta">
-            <span class="tc-hex">#f5d142</span>
-            <div class="tc-swatch"><span></span><span></span><span></span></div>
-          </div>
-        </div>
-      </div>
-      <div class="team-card reveal-up delay-2">
-        <div class="tc-img-wrap">
-          <img src="{{ url_for('static', filename='images/d2.jpg') }}" alt="Dr. Owen" data-parallax="0.1" />
-        </div>
-        <div class="tc-info">
-          <div class="pantone-label">PANTONE<span>®</span></div>
-          <div class="tc-name">Nicholas Young — Specialist</div>
-          <div class="tc-meta">
-            <span class="tc-hex">#f5d142</span>
-            <div class="tc-swatch"><span></span><span></span><span></span></div>
-          </div>
-        </div>
-      </div>
-      <div class="team-card reveal-up delay-3">
-        <div class="tc-img-wrap">
-          <img src="{{ url_for('static', filename='images/d3.jpg') }}" alt="Dr. Snyder" data-parallax="0.1" />
-        </div>
-        <div class="tc-info">
-          <div class="pantone-label">PANTONE<span>®</span></div>
-          <div class="tc-name">Jasmine Snyder — Periodt.</div>
-          <div class="tc-meta">
-            <span class="tc-hex">#f5d142</span>
-            <div class="tc-swatch"><span></span><span></span><span></span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══ CTA BANNER ═══ -->
-  <section class="cta-banner">
-    <div class="cta-banner-orb"></div>
-    <div class="cta-banner-content reveal-up">
-      <h2>Ready for your<br/><em>glow-up?</em></h2>
-      <p>Book in 60 seconds. Our AI assistant is live right now.</p>
-      <a href="javascript:void(0)" onclick="openBookingModal()" class="cta-primary cta-big">
-        Start Your Journey ✦
-      </a>
-    </div>
-  </section>
-
-  <!-- ═══ FOOTER ═══ -->
-  <footer class="footer" id="contact">
-    <div class="footer-inner">
-      <div class="footer-brand">
-        <div class="logo footer-logo">
-          <span class="logo-smile">✦</span>
-          <span class="logo-text">Smile<em>Dental</em></span>
-        </div>
-        <p>Where passion meets precision. Your smile is our masterpiece.</p>
-        <div class="footer-socials">
-          <span class="social-dot">ig</span>
-          <span class="social-dot">fb</span>
-          <span class="social-dot">tw</span>
-        </div>
-      </div>
-      <div class="footer-col">
-        <h5>Quick Links</h5>
-        <ul>
-          <li><a href="#hero">Home</a></li>
-          <li><a href="#services">Services</a></li>
-          <li><a href="#team">Our Team</a></li>
-          <li><a href="#about">About</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h5>Contact</h5>
-        <ul>
-          <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-            <span>123 Smile Ave, Chennai</span>
-          </li>
-          <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-            <span>+91 86100 80432</span>
-          </li>
-          <li style="display: flex; align-items: center; gap: 12px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-            <span>hello@smiledental.com</span>
-          </li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h5>Hours</h5>
-        <ul>
-          <li>Mon–Sat: 9 AM – 5 PM</li>
-          <li>Sunday: Closed</li>
-          <li>Emergency: 24/7</li>
-        </ul>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <span>© 2025 Smile Dental. All rights reserved.</span>
-      <span>Crafted with ✦ passion</span>
-    </div>
-  </footer>
-
-  <!-- ═══ AI CHATBOT MODAL ═══ -->
-  <div id="bookingModal" class="ai-modal">
-    <div class="modal-content glass-card">
-      <div class="modal-header">
-        <div class="modal-branding">
-          <svg class="modal-logo" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);">
-            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-          </svg>
-          <div class="modal-title-wrap">
-            <h3 class="modal-title">Dental AI Assistant</h3>
-            <div class="modal-status">
-              <span id="statusDotModal" class="status-dot active"></span>
-              <span id="statusTextModal">SYSTEM ONLINE</span>
+{% block content %}
+    <!-- HERO SECTION -->
+    <section class="hero" id="hero">
+        <div class="container hero-grid">
+            <div class="hero-content">
+                <span class="eyebrow">Expert Dental Care</span>
+                <h1 class="hero-title">Your Journey to a <span>Perfect Smile</span> Starts Here</h1>
+                <p class="hero-text">Experience the fusion of advanced technology and compassionate care. Our specialists are dedicated to your oral health and confidence.</p>
+                <div class="hero-ctas">
+                    <button onclick="openBookingModal()" class="btn btn-primary">Book Appointment <i class="fas fa-calendar-alt"></i></button>
+                    <a href="tel:+918610080432" class="btn btn-outline">Call Us <i class="fas fa-phone"></i></a>
+                </div>
             </div>
-          </div>
+            <div class="hero-image-wrapper">
+                <img src="{{ url_for('static', filename='images/premium_dental_hero_1777377214566.png') }}" alt="Happy Dental Patient" class="hero-image">
+                <div class="floating-card card-1">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-star" style="color: var(--accent);"></i>
+                        <div>
+                            <h4 style="font-size: 0.9rem;">Top Rated</h4>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">4.9/5 Patient Rating</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="floating-card card-2">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-user-md" style="color: var(--primary);"></i>
+                        <div>
+                            <h4 style="font-size: 0.9rem;">Expert Team</h4>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">50+ Specialists</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <button id="closeModal" onclick="closeBookingModal()" class="modal-close">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </div>
-      
-      <div id="conversationContainerModal" class="chat-container"></div>
-      
-      <div class="chat-input-area">
-        <button id="voiceBtnModal" class="voice-btn" title="Speak">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-        </button>
-        <input type="text" id="messageInputModal" placeholder="Ask anything about your smile..." autocomplete="off" />
-        <button id="sendBtnModal" class="send-btn">
-          <span>SEND</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-        </button>
-        <button id="startBtnModal" style="display:none;">Start</button>
-      </div>
-    </div>
-  </div>
+    </section>
 
-  <!-- ═══ FAB ═══ -->
-  <a href="#hero" class="back-to-top" id="backToTop">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-  </a>
+    <!-- TRUST BAR -->
+    <section class="reveal" style="margin-top: -60px; position: relative; z-index: 10;">
+        <div class="container">
+            <div style="background: white; border-radius: var(--radius-2xl); box-shadow: var(--shadow-2xl); padding: 4rem 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 3rem; border: 1px solid var(--bg-alt);">
+                <!-- Years of Trust -->
+                <div class="trust-item" style="text-align: center; border-right: 1px solid var(--bg-alt);">
+                    <div style="width: 50px; height: 50px; color: var(--primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.25rem;"><i class="fas fa-award"></i></div>
+                    <div style="display: flex; align-items: baseline; justify-content: center; gap: 2px;">
+                        <span class="trust-num" data-target="20" style="font-size: 2.5rem; font-weight: 800; color: var(--primary); font-family: var(--font-head);">0</span>
+                        <span style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">+</span>
+                    </div>
+                    <span style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 5px;">Years of Trust</span>
+                </div>
+                <!-- Happy Patients -->
+                <div class="trust-item" style="text-align: center; border-right: 1px solid var(--bg-alt);">
+                    <div style="width: 50px; height: 50px; background: var(--secondary-glow); color: var(--secondary); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.25rem;"><i class="fas fa-users"></i></div>
+                    <div style="display: flex; align-items: baseline; justify-content: center; gap: 2px;">
+                        <span class="trust-num" data-target="14" style="font-size: 2.5rem; font-weight: 800; color: var(--primary); font-family: var(--font-head);">0</span>
+                        <span style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">K+</span>
+                    </div>
+                    <span style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 5px;">Happy Patients</span>
+                </div>
+                <!-- Safety Record -->
+                <div class="trust-item" style="text-align: center; border-right: 1px solid var(--bg-alt);">
+                    <div style="width: 50px; height: 50px; background: #ecfdf5; color: #10b981; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.25rem;"><i class="fas fa-shield-alt"></i></div>
+                    <div style="display: flex; align-items: baseline; justify-content: center; gap: 2px;">
+                        <span class="trust-num" data-target="100" style="font-size: 2.5rem; font-weight: 800; color: var(--primary); font-family: var(--font-head);">0</span>
+                        <span style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">%</span>
+                    </div>
+                    <span style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 5px;">Safety Record</span>
+                </div>
+                <!-- AI Support -->
+                <div class="trust-item" style="text-align: center;">
+                    <div style="width: 50px; height: 50px; color: var(--primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.25rem;"><i class="fas fa-robot"></i></div>
+                    <div style="display: flex; align-items: baseline; justify-content: center; gap: 2px;">
+                        <span class="trust-num" data-target="24" style="font-size: 2.5rem; font-weight: 800; color: var(--primary); font-family: var(--font-head);">0</span>
+                        <span style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">/7</span>
+                    </div>
+                    <span style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 5px;">AI Support</span>
+                </div>
+            </div>
+        </div>
+    </section>
 
-  <div id="aiFab" class="ai-fab" onclick="openBookingModal()">
-    <div class="fab-ping"></div>
-    <svg class="fab-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"></path></svg>
-  </div>
+    <!-- ABOUT SECTION -->
+    <section class="section-padding" style="background: white;">
+        <div class="container">
+            <div class="about-grid" style="align-items: center; gap: 6rem;">
+                <div class="about-image-grid reveal" style="grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); height: 600px;">
+                    <img src="{{ url_for('static', filename='images/lead_dentist_portrait_1777379520522.png') }}" alt="Lead Dentist" style="grid-area: 1 / 1 / 3 / 2; width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-2xl);">
+                    <img src="{{ url_for('static', filename='images/female_orthodontist_portrait_1777379545000.png') }}" alt="Specialist" style="grid-area: 1 / 2 / 2 / 3; width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-2xl);">
+                    <div style="grid-area: 2 / 2 / 3 / 3; background: var(--primary); border-radius: var(--radius-2xl); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; padding: 2rem; text-align: center;">
+                        <h3 style="font-size: 3rem; margin-bottom: 0;">20+</h3>
+                        <p style="font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">Years of Care</p>
+                    </div>
+                </div>
+                
+                <div class="about-content reveal">
+                    <span class="eyebrow">Our Legacy</span>
+                    <h2 class="section-title">Where <span>Artistry</span> Meets Clinical Excellence</h2>
+                    <p style="font-size: 1.1rem; line-height: 1.8; color: var(--text-muted); margin-bottom: 2rem;">Smile Dental isn't just a clinic; it's a sanctuary for your oral health. Founded on the principles of trust and innovation, we've spent over two decades perfecting the art of the perfect smile.</p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 3rem;">
+                        <div>
+                            <div style="width: 45px; height: 45px; background: var(--primary-glow); color: var(--primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; font-size: 1.2rem;"><i class="fas fa-heartbeat"></i></div>
+                            <h4 style="margin-bottom: 10px;">Patient Centric</h4>
+                            <p style="font-size: 0.9rem; color: var(--text-muted);">Your comfort is the heartbeat of our practice.</p>
+                        </div>
+                        <div>
+                            <div style="width: 45px; height: 45px; background: var(--secondary-glow); color: var(--secondary); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; font-size: 1.2rem;"><i class="fas fa-microscope"></i></div>
+                            <h4 style="margin-bottom: 10px;">Modern Tech</h4>
+                            <p style="font-size: 0.9rem; color: var(--text-muted);">Digital diagnostics for surgical precision.</p>
+                        </div>
+                    </div>
 
-  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-</body>
-</html>
+                    <a href="/about" class="btn btn-outline">Meet Our Team</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SERVICES SECTION -->
+    <section class="section-padding" style="background: var(--bg-soft); position: relative; overflow: hidden;">
+        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.02; pointer-events: none;">
+            <svg width="100%" height="100%"><pattern id="dots" width="40" height="40" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.5" fill="currentColor"/></pattern><rect width="100%" height="100%" fill="url(#dots)" /></svg>
+        </div>
+
+        <div class="container" style="position: relative; z-index: 1;">
+            <div class="text-center" style="margin-bottom: 6rem;">
+                <span class="eyebrow">Our Expertise</span>
+                <h2 class="section-title">Specialized <span>Dentistry</span></h2>
+                <p class="section-subtitle">Tailored treatments delivered with global clinical standards.</p>
+            </div>
+            
+            <div class="services-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                {% for slug, service in services.items() %}
+                {% if loop.index <= 3 %}
+                <div class="premium-card reveal">
+                    <div class="card-image-wrapper">
+                        <img src="{{ url_for('static', filename='images/' + service.image) }}" alt="{{ service.title }}" class="card-image">
+                        <div class="card-badge">Specialized</div>
+                    </div>
+                    <div class="card-content">
+                        <h3>{{ service.title }}</h3>
+                        <p>{{ service.description[:110] }}...</p>
+                        <div class="card-footer">
+                            <a href="/services/{{ slug }}" class="explore-link">
+                                Explore Treatment <i class="fas fa-arrow-right"></i>
+                            </a>
+                            <div class="card-icon">
+                                <i class="fas fa-tooth"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- BLOG SECTION -->
+    <section class="section-padding" style="background: white;">
+        <div class="container">
+            <div class="text-center" style="margin-bottom: 4rem;">
+                <span class="eyebrow">Stay Informed</span>
+                <h2 class="section-title">Latest from our <span>Blog</span></h2>
+                <p class="section-subtitle">Expert tips and insights for your oral health.</p>
+            </div>
+            
+            <div class="blog-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                {% for blog in blogs[:3] %}
+                <article class="premium-card reveal">
+                    <div class="card-image-wrapper" style="height: 200px;">
+                        <img src="{{ url_for('static', filename='images/' + blog.image) }}" alt="{{ blog.title }}" class="card-image">
+                        <div class="card-badge">{{ blog.category }}</div>
+                    </div>
+                    <div class="card-content">
+                        <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem;">{{ blog.title }}</h3>
+                        <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1.5rem;">{{ blog.excerpt[:100] }}...</p>
+                        <a href="/blog" class="explore-link">Read More <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+            
+            <div class="text-center" style="margin-top: 4rem;">
+                <a href="/blog" class="btn btn-outline">View All Articles</a>
+            </div>
+        </div>
+    </section>
+    <!-- FAQ SECTION (Moved from separate page) -->
+    <!-- <section id="faq" class="section-padding" style="background: white;">
+        <div class="container">
+            <div class="text-center">
+                <span class="eyebrow">Common Queries</span>
+                <h2 class="section-title">Frequently Asked <span>Questions</span></h2>
+            </div>
+            <div class="faq-container" style="max-width: 800px; margin: 4rem auto 0;">
+                <div class="faq-item reveal">
+                    <div class="faq-question">What are your clinic timings? <i class="fas fa-plus"></i></div>
+                    <div class="faq-answer">We are open Monday to Saturday, from 9 AM to 5 PM. We are closed on Sundays and major public holidays.</div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question">How do I book an appointment? <i class="fas fa-plus"></i></div>
+                    <div class="faq-answer">You can book directly through our website using the "Book Now" button, which connects you to our AI assistant. Alternatively, you can call us at +91 86100 80432.</div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question">Do you accept dental insurance? <i class="fas fa-plus"></i></div>
+                    <div class="faq-answer">Yes, we work with most major insurance providers. Please bring your insurance card during your first visit so we can verify your coverage.</div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question">Is professional teeth whitening safe? <i class="fas fa-plus"></i></div>
+                    <div class="faq-answer">Absolutely. When performed by a dental professional, teeth whitening is a safe procedure that does not damage your enamel.</div>
+                </div>
+            </div>
+        </div>
+    </section> -->
+
+    <!-- CTA SECTION -->
+    <section class="section-padding reveal">
+        <div class="container">
+            <div style="background: linear-gradient(135deg, var(--primary-dark), var(--primary)); border-radius: var(--radius-lg); padding: 5rem 2rem; text-align: center; color: white; box-shadow: var(--shadow-xl); position: relative; overflow: hidden;">
+                <!-- Animated Background Shapes -->
+                <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(255,255,255,0.1); border-radius: 50%; animation: rotate 20s linear infinite;"></div>
+                <div style="position: absolute; bottom: -50px; left: -50px; width: 150px; height: 150px; background: rgba(255,255,255,0.05); border-radius: 50%; animation: rotate 15s linear infinite reverse;"></div>
+                
+                <h2 style="font-size: clamp(2rem, 5vw, 3rem); margin-bottom: 1.5rem; font-family: var(--font-head); position: relative; z-index: 1;">Ready for a Healthier Smile?</h2>
+                <p style="font-size: 1.25rem; opacity: 0.9; max-width: 600px; margin: 0 auto 3rem; position: relative; z-index: 1;">Join thousands of happy patients who trust Smile Dental for their oral care. Book your consultation today.</p>
+                <div style="display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; position: relative; z-index: 1;">
+                    <button onclick="openBookingModal()" class="btn" style="background: white; color: var(--primary);">Schedule Now</button>
+                    <a href="/contact" class="btn" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid white;">Contact Us</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Counter Animation
+        function animateCounters() {
+            const counters = document.querySelectorAll('.trust-num');
+            counters.forEach(counter => {
+                const target = +counter.getAttribute('data-target');
+                let count = 0;
+                const increment = target / 50;
+                const updateCount = () => {
+                    if (count < target) {
+                        count += increment;
+                        counter.innerText = Math.ceil(count);
+                        setTimeout(updateCount, 20);
+                    } else {
+                        counter.innerText = target;
+                    }
+                };
+                updateCount();
+            });
+        }
+
+        // FAQ Toggle
+        document.querySelectorAll('.faq-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const item = header.parentElement;
+                item.classList.toggle('active');
+            });
+        });
+    </script>
+{% endblock %}

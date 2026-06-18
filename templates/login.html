@@ -1,413 +1,149 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smile Dental | Sign In</title>
+    <title>Smile Dental | Access Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Righteous&family=Nunito:wght@300;400;700;800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --accent: #d4af37; /* Champagne Gold */
-            --bg: #050505;
-            --bg2: #0a0a0a;
-            --border: rgba(255, 255, 255, 0.05);
-            --white: #ffffff;
-            --white-dim: rgba(255, 255, 255, 0.5);
-            --white-faint: rgba(255, 255, 255, 0.05);
-            --transition: 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            --primary: #3B82F6;
+            --primary-dark: #1D4ED8;
+            --bg: #F8FAFC;
+            --text: #0F172A;
+            --text-muted: #64748B;
+            --border: #E2E8F0;
+            --radius: 20px;
+            --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Nunito', sans-serif;
-            background-color: var(--bg);
-            color: var(--white);
-            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.05), transparent),
+                        radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.05), var(--bg));
+            color: var(--text);
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
-            position: relative;
-            cursor: none;
-        }
-
-        /*  CURSOR  */
-        #cursor {
-            position: fixed;
-            width: 10px;
-            height: 10px;
-            background: var(--accent);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 99999;
-            transform: translate(-50%, -50%);
-            transition: transform 0.08s, width 0.3s, height 0.3s;
-            mix-blend-mode: exclusion;
-            box-shadow: 0 0 15px rgba(245, 209, 66, 0.3);
-        }
-
-        #cursorTrail {
-            position: fixed;
-            width: 50px;
-            height: 50px;
-            background: transparent;
-            border: 2px solid var(--accent);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 99998;
-            transform: translate(-50%, -50%);
-            transition: transform 0.15s cubic-bezier(0.23, 1, 0.32, 1);
-            mix-blend-mode: exclusion;
-            opacity: 0.5;
-        }
-
-        /* Ambient Background */
-        body::before {
-            content: '';
-            position: absolute;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(212, 175, 55, 0.05) 0%, transparent 70%);
-            top: -200px;
-            right: -200px;
-            pointer-events: none;
-        }
-
-        .auth-container {
-            width: 100%;
-            max-width: 380px;
+            min-height: 100vh;
             padding: 20px;
+        }
+        .login-card {
+            background: white;
+            padding: 50px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 450px;
             position: relative;
-            z-index: 10;
+            overflow: hidden;
         }
-
-        .brand {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .brand svg {
-            color: var(--accent);
-            margin-bottom: 12px;
-            transform: scale(0.8);
-            transition: transform 1.2s cubic-bezier(0.19, 1, 0.22, 1);
-        }
-
-        .brand:hover svg {
-            transform: scale(0.8) rotate(180deg);
-        }
-
-        .brand h1 {
-            font-family: 'Righteous', sans-serif;
-            font-size: 1.5rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-        }
-
-        .brand h1 em {
-            color: var(--accent);
-            font-style: normal;
-        }
-
-        .auth-card {
-            background: rgba(255, 255, 255, 0.02);
-            backdrop-filter: blur(40px) saturate(180%);
-            -webkit-backdrop-filter: blur(40px) saturate(180%);
-            border: 1px solid var(--border);
-            padding: 40px 32px;
-            border-radius: 4px;
-            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.4);
-            position: relative;
-            overflow: visible;
-            animation: fadeIn 0.8s var(--transition);
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .auth-card::before {
+        .login-card::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--accent), transparent);
-            opacity: 0.4;
+            top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, var(--primary), #10B981);
         }
-
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 40px;
+            text-decoration: none;
+        }
+        .logo i { color: var(--primary); }
+        .logo span { color: var(--primary); }
         .tabs {
             display: flex;
-            gap: 32px;
-            margin-bottom: 40px;
+            gap: 30px;
+            margin-bottom: 30px;
             border-bottom: 1px solid var(--border);
         }
-
         .tab {
-            padding-bottom: 12px;
-            font-family: 'Righteous', cursive;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.2rem;
-            color: var(--white-dim);
+            padding-bottom: 15px;
             cursor: pointer;
-            transition: all var(--transition);
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: 0.3s;
+            font-size: 0.95rem;
             position: relative;
         }
-
         .tab.active {
-            color: var(--accent);
+            color: var(--primary);
         }
-
         .tab.active::after {
             content: '';
             position: absolute;
-            bottom: -1px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--accent);
+            bottom: -1px; left: 0; right: 0; height: 2px;
+            background: var(--primary);
         }
-
-        .form-group {
-            margin-bottom: 18px;
-            position: relative;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 0.65rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--white-dim);
-            margin-bottom: 6px;
-        }
-
-        .input-wrapper {
-            position: relative;
-        }
-
-        .form-group input {
+        .form-group { margin-bottom: 24px; }
+        label { display: block; font-size: 0.85rem; font-weight: 700; margin-bottom: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        input {
             width: 100%;
-            background: rgba(255, 255, 255, 0.03);
+            padding: 14px 20px;
             border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 14px 16px;
-            color: var(--white);
-            font-size: 0.9rem;
-            font-family: 'Nunito', sans-serif;
+            border-radius: 12px;
             outline: none;
-            transition: all var(--transition);
+            transition: 0.3s;
+            font-size: 1rem;
+            background: #F1F5F9;
         }
-
-        .form-group input:focus {
-            border-color: var(--accent);
-            background: rgba(255, 255, 255, 0.05);
-            box-shadow: 0 0 20px rgba(245, 209, 66, 0.05);
-        }
-
-        .toggle-password {
-            position: absolute;
-            right: 18px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--white-dim);
-            cursor: pointer;
-            transition: color 0.3s;
-            background: none;
-            border: none;
-            padding: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .toggle-password:hover {
-            color: var(--accent);
-        }
-
-        /* Fix Chrome autofill blue */
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover,
-        input:-webkit-autofill:focus {
-            -webkit-text-fill-color: var(--white);
-            -webkit-box-shadow: 0 0 0px 1000px #0a0a0a inset;
-            transition: background-color 5000s ease-in-out 0s;
-        }
-
+        input:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
         .btn-submit {
             width: 100%;
-            background: transparent;
-            color: var(--accent);
-            border: 1px solid var(--accent);
-            padding: 14px;
-            font-family: 'Righteous', sans-serif;
-            font-size: 0.8rem;
+            padding: 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
             font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.25em;
+            font-size: 1rem;
             cursor: pointer;
-            transition: all var(--transition);
-            margin-top: 15px;
-            position: relative;
-            overflow: hidden;
+            transition: 0.3s;
+            margin-top: 10px;
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
         }
-
-        .btn-submit:hover {
-            background: var(--accent);
-            color: var(--bg);
-            box-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
-            transform: translateY(-2px);
-        }
-
-        .divider {
-            display: flex;
-            align-items: center;
-            text-align: center;
-            margin: 20px 0;
-            color: var(--white-faint);
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-        }
-
-        .divider::before, .divider::after {
-            content: '';
-            flex: 1;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .divider:not(:empty)::before { margin-right: 16px; }
-        .divider:not(:empty)::after { margin-left: 16px; }
-
-        .social-btns {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        .social-btn {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            color: var(--white-dim);
-            font-size: 0.7rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all var(--transition);
-        }
-
-        .social-btn:hover {
-            background: rgba(255, 255, 255, 0.06);
-            border-color: var(--white-dim);
-            color: var(--white);
-        }
-
-        .msg {
-            margin-top: 24px;
-            font-size: 0.85rem;
-            text-align: center;
-            min-height: 20px;
-        }
-
-        .msg-error {
-            color: #ff4d4d;
-        }
-
-        .msg-success {
-            color: var(--accent);
-        }
-
-        .hidden {
-            display: none;
-        }
+        .btn-submit:hover { background: var(--primary-dark); transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgba(59, 130, 246, 0.4); }
+        .msg { margin-top: 20px; text-align: center; font-size: 0.95rem; min-height: 24px; font-weight: 500; }
+        .msg-error { color: #EF4444; }
+        .msg-success { color: #10B981; }
+        .hidden { display: none; }
     </style>
 </head>
-
 <body>
-    <div id="cursor"></div>
-    <div id="cursorTrail"></div>
-
-    <div class="auth-container">
-        <div class="brand">
-            <!-- Official Home Page Logo -->
-            <svg class="logo-mark" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 12px; opacity: 0.9;">
-                <path d="M12 2v20M2 12h20M7 7l10 10M7 17L17 7"/>
-                <circle cx="12" cy="12" r="10" stroke-width="1.5" opacity="0.5"/>
-            </svg>
-            <h1>Smile <em>Dental</em></h1>
+    <div class="login-card">
+        <a href="/" class="logo"><i class="fas fa-tooth"></i> Smile <span>Dental</span></a>
+        
+        <div class="tabs">
+            <div class="tab active" id="tab-signin">Sign In</div>
+            <div class="tab" id="tab-signup">Sign Up</div>
         </div>
 
-        <div class="auth-card">
-            <div class="tabs">
-                <div class="tab active" id="tab-signin">Sign In</div>
-                <div class="tab" id="tab-signup">Register</div>
+        <form id="auth-form">
+            <div id="name-group" class="form-group hidden">
+                <label>Full Name</label>
+                <input type="text" id="name" placeholder="John Doe">
             </div>
-
-            <form id="auth-form">
-                <div id="name-group" class="form-group hidden">
-                    <label>Full Name</label>
-                    <input type="text" id="name" placeholder="John Doe">
-                </div>
-
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <input type="email" id="email" required placeholder="name@clinic.com">
-                </div>
-
-                <div class="form-group">
-                    <label>Password</label>
-                    <div class="input-wrapper">
-                        <input type="password" id="password" required placeholder="••••••••">
-                        <button type="button" class="toggle-password" id="togglePassword">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn-submit" id="submit-btn">Authenticate</button>
-            </form>
-
-            <div class="divider">or continue with</div>
-
-            <div class="social-btns">
-                <div class="social-btn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                    </svg>
-                    Google
-                </div>
-                <div class="social-btn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.82-.779.883-1.453 2.311-1.272 3.672 1.35.104 2.714-.65 3.559-1.662z"/>
-                    </svg>
-                    Apple
-                </div>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="email" required placeholder="name@email.com">
             </div>
-
-            <div id="message" class="msg"></div>
-        </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="password" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn-submit" id="submit-btn">Sign In</button>
+        </form>
+        <div id="message" class="msg"></div>
     </div>
 
     <script>
@@ -417,134 +153,56 @@
         const nameGroup = document.getElementById('name-group');
         const submitBtn = document.getElementById('submit-btn');
         const messageDiv = document.getElementById('message');
-        const passwordInput = document.getElementById('password');
-        const togglePassword = document.getElementById('togglePassword');
-
         let mode = 'signin';
 
-        // Toggle Password Visibility
-        togglePassword.addEventListener('click', () => {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            togglePassword.classList.toggle('active');
-            
-            // Update icon
-            togglePassword.innerHTML = type === 'password' 
-                ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`
-                : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
-        });
-
-        tabSignin.addEventListener('click', () => {
+        tabSignin.onclick = () => {
             mode = 'signin';
             tabSignin.classList.add('active');
             tabSignup.classList.remove('active');
             nameGroup.classList.add('hidden');
-            submitBtn.innerText = 'Authenticate';
-            messageDiv.innerHTML = '';
-        });
-
-        tabSignup.addEventListener('click', () => {
+            submitBtn.innerText = 'Sign In';
+            messageDiv.innerText = '';
+        };
+        tabSignup.onclick = () => {
             mode = 'signup';
             tabSignup.classList.add('active');
             tabSignin.classList.remove('active');
             nameGroup.classList.remove('hidden');
             submitBtn.innerText = 'Create Account';
-            messageDiv.innerHTML = '';
-        });
+            messageDiv.innerText = '';
+        };
 
-        authForm.addEventListener('submit', async (e) => {
+        authForm.onsubmit = async (e) => {
             e.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = passwordInput.value;
-            const name = document.getElementById('name').value;
+            const payload = { 
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value
+            };
+            if (mode === 'signup') payload.name = document.getElementById('name').value;
 
-            // Client-side Validation
-            if (password.length < 4) {
-                messageDiv.innerText = 'Password must be at least 4 characters.';
-                messageDiv.className = 'msg msg-error';
-                return;
-            }
-
-            messageDiv.innerHTML = 'Validating credentials...';
+            messageDiv.innerText = 'Processing...';
             messageDiv.className = 'msg';
-
-            const endpoint = mode === 'signin' ? '/signin' : '/signup';
-            const payload = { email, password };
-            if (mode === 'signup') payload.name = name;
-
+            
             try {
-                const response = await fetch(endpoint, {
+                const res = await fetch(mode === 'signin' ? '/signin' : '/signup', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    messageDiv.innerText = data.message;
+                const data = await res.json();
+                if (res.ok) {
                     messageDiv.className = 'msg msg-success';
-                    if (mode === 'signin') {
-                        setTimeout(() => {
-                            window.location.href = data.role === 'admin' ? '/admin' : '/';
-                        }, 800);
-                    } else {
-                        setTimeout(() => tabSignin.click(), 1200);
-                    }
+                    messageDiv.innerText = data.message;
+                    if (mode === 'signin') setTimeout(() => window.location.href = data.role === 'admin' ? '/admin' : '/', 800);
                 } else {
-                    messageDiv.innerText = data.error;
                     messageDiv.className = 'msg msg-error';
+                    messageDiv.innerText = data.error;
                 }
-            } catch (error) {
-                messageDiv.innerText = 'System error. Please try again.';
+            } catch (err) {
                 messageDiv.className = 'msg msg-error';
+                messageDiv.innerText = 'System error. Please try again.';
             }
-        });
-
-        // Social mockup click events
-        document.querySelectorAll('.social-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                messageDiv.innerText = 'Social Login is coming soon!';
-                messageDiv.className = 'msg msg-success';
-            });
-        });
-
-        //  CURSOR LOGIC 
-        const cursor = document.getElementById('cursor');
-        const trail = document.getElementById('cursorTrail');
-        let mouseX = 0, mouseY = 0;
-        let trailX = 0, trailY = 0;
-
-        document.addEventListener('mousemove', (e) => {
-            mouseX = e.clientX;
-            mouseY = e.clientY;
-            cursor.style.left = mouseX + 'px';
-            cursor.style.top = mouseY + 'px';
-        });
-
-        const tick = () => {
-            trailX += (mouseX - trailX) * 0.15;
-            trailY += (mouseY - trailY) * 0.15;
-            trail.style.left = trailX + 'px';
-            trail.style.top = trailY + 'px';
-            requestAnimationFrame(tick);
         };
-        tick();
-
-        // Hover effects for inputs and buttons
-        const interactibles = document.querySelectorAll('input, button, .tab, .social-btn');
-        interactibles.forEach(el => {
-            el.addEventListener('mouseenter', () => {
-                cursor.style.width = '24px';
-                cursor.style.height = '24px';
-            });
-            el.addEventListener('mouseleave', () => {
-                cursor.style.width = '10px';
-                cursor.style.height = '10px';
-            });
-        });
     </script>
 </body>
-
 </html>

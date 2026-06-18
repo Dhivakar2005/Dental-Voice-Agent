@@ -46,7 +46,7 @@
 | System | Channel | AI/Tech | Purpose |
 |---|---|---|---|
 | **Voice Agent** | Phone (Twilio) | Deepgram Nova-3 STT + GPT-4o-mini + Deepgram Aura-2 TTS | Live AI receptionist for calls |
-| **Web Chat Agent** | Browser | Ollama (aya-expanse:8b) + Regex hybrid engine | Instant 24/7 web booking assistant |
+| **Web Chat Agent** | Browser | Deepgram Agent (gpt-4o-mini) + Regex hybrid engine | Instant 24/7 web booking assistant |
 | **WhatsApp Automation** | WhatsApp (Twilio) | Rule-based engine + Google Sheets watcher | Appointment confirmations, reminders, multi-sitting predictions |
 | **Admin Dashboard** | Web | Flask + Google APIs | Real-time clinic management dashboard |
 
@@ -82,7 +82,7 @@ graph TB
     end
 
     subgraph WebAgent["💬 Web Chat Agent (app.py)"]
-        OLLAMA["Ollama aya-expanse:8b\n(LLM)"]
+        CLOUD_LLM["Deepgram Cloud LLM\n(gpt-4o-mini)"]
         REGEX["Regex Engine\n(<1ms fast path)"]
         STATE["Session State\nManager"]
     end
@@ -108,7 +108,7 @@ graph TB
     DGA -- FunctionCallRequest --> FN
 
     WEB --> CHAT_API --> WebAgent
-    WebAgent --> OLLAMA & REGEX
+    WebAgent --> CLOUD_LLM & REGEX
     WebAgent --> STATE
 
     WA --> WA_HOOK --> ENGINE
@@ -144,7 +144,7 @@ A **real-time, zero-silence AI receptionist** that answers the clinic's phone li
 A **hybrid intent engine** for the web booking interface:
 
 - **Fast path (< 1ms):** 15+ regex extractors resolve intent, name, phone, date, time, reason, and customer ID without invoking an LLM.
-- **LLM fallback:** Ollama (aya-expanse:8b) handles ambiguous queries, confirmations, and multilingual inputs.
+- **LLM fallback:** Powered by Deepgram's hosted LLM (gpt-4o-mini). Handles ambiguous queries, confirmations, and multilingual inputs.
 - **Streaming SSE:** Responses are streamed token-by-token for a premium chat experience.
 - **Session management:** Each browser session gets a UUID-keyed `WebVoiceAgent` with full state persistence via MongoDB.
 
@@ -197,7 +197,7 @@ A **secure, real-time dashboard** for clinic staff:
 | **Web Framework** | Flask 3.0 + Flask-Sock | HTTP server + WebSocket handler |
 | **STT** | Deepgram Nova-3 | Real-time speech-to-text (< 300ms) |
 | **LLM (Telephony)** | OpenAI GPT-4o-mini | Intent reasoning + function calling on phone |
-| **LLM (Web Chat)** | Ollama aya-expanse:8b | Local LLM for web chat intent extraction |
+| **LLM (Web Chat)** | Deepgram Cloud (gpt-4o-mini) | Cloud LLM for web chat intent extraction |
 | **TTS** | Deepgram Aura-2-Thalia | Natural female voice for TTS output |
 | **Telephony** | Twilio Voice + Media Streams | Inbound calls + µ-law audio WebSocket |
 | **WhatsApp** | Twilio WhatsApp API | Patient messaging & reminders |
@@ -300,7 +300,7 @@ TWILIO_SKIP_VALIDATION=true
 
 - Python 3.12+
 - MongoDB (running locally or Atlas)
-- Ollama with `aya-expanse:8b` model
+- Deepgram Account with API Key
 - Google Cloud project with Calendar API + Sheets API enabled
 - Twilio account with a voice number and WhatsApp sandbox
 
@@ -316,9 +316,8 @@ pip install -r requirements.txt
 pip install -r voice_agent/requirements.txt
 pip install -r scheduling_automation/requirements_scheduler.txt
 
-# 3. Start Ollama and pull the web chat model
-ollama serve
-ollama pull aya-expanse:8b
+# 3. Secure your API keys
+#    Ensure DEEPGRAM_API_KEY and OPENAI_API_KEY are set in .env
 
 # 4. Place credentials.json (Google OAuth) in the project root.
 #    On first run, a browser window will open to authorize Google access.

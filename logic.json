@@ -13,7 +13,13 @@
         "working hours",
         "timing",
         "when do you close",
-        "working days"
+        "working days",
+        "opening time",
+        "closing time",
+        "kab khulta hai",
+        "kab band hota hai",
+        "eppo tharakum",
+        "eppo moodum"
       ],
       "answer": "We are open Monday to Saturday, from 9 AM to 5 PM. We are closed on Sundays."
     },
@@ -24,7 +30,11 @@
         "how can i book",
         "booking process",
         "what are the ways to book",
-        "where to book"
+        "where to book",
+        "pannanum",
+        "karna hai",
+        "book panna num",
+        "book karna h"
       ],
       "answer": "You can book by calling our voice assistant, using our website chat, or calling us directly."
     },
@@ -59,7 +69,9 @@
         "procedures",
         "what can you do",
         "dental services",
-        "what treatment"
+        "what treatment",
+        "enna treatment",
+        "kya treatment"
       ],
       "answer": "We offer: General Dental Checkup, Tooth Filling, Root Canal Treatment, Braces and Teeth Alignment, Gum Treatment and Scaling, Crowns Bridges and Dentures, Tooth Extraction, Pediatric Dental Care, Dental X-rays, and Oral Disease Evaluation."
     },
@@ -298,20 +310,20 @@
   },
   "intent_patterns": {
     "reschedule": [
-      "\\b(reschedule|re-schedule|reshedule|rechedule|rescheduling|change|move|shift|update|modify)\\b.{0,40}\\bappointment\\b",
-      "\\bappointment\\b.{0,40}\\b(change|move|reschedule|different\\s*time|new\\s*time)\\b"
+      "\\b(reschedule|re-schedule|reshedule|rechedule|rescheduling|change|move|shift|update|modify|maatra|badalna)\\b.{0,40}\\bappointment\\b",
+      "\\bappointment\\b.{0,40}\\b(change|move|reschedule|different\\s*time|new\\s*time|maatra|badalna)\\b"
     ],
     "cancel": [
-      "\\b(cancel|cancell\\w*|remove|delete)\\b.{0,40}\\bappointment\\b",
-      "\\bappointment\\b.{0,40}\\b(cancel|remove|delete)\\b"
+      "\\b(cancel|cancell\\w*|remove|delete|rattu|radd|nahi|illa)\\b.{0,40}\\bappointment\\b",
+      "\\bappointment\\b.{0,40}\\b(cancel|remove|delete|rattu|radd|nahi|illa)\\b"
     ],
     "book": [
-      "\\b(book|booking|schedule|scheduli\\w*|make|set\\s*up)\\b.{0,40}\\bappointment\\b",
-      "\\bappointment\\b.{0,40}\\b(book|schedule|make|want|need)\\b",
+      "\\b(book|booking|schedule|scheduli\\w*|make|set\\s*up|pannanum|karna|krna|venum|chahiye)\\b.{0,40}\\bappointment\\b",
+      "\\bappointment\\b.{0,40}\\b(book|schedule|make|want|need|pannanum|karna|krna|venum|chahiye)\\b",
       "\\b(see|visit|come\\s*in|consult)\\b.{0,30}\\b(dentist|doctor|dental|clinic)\\b",
       "\\b(need|want|like|wish)\\b.{0,30}\\b(appointment|visit|checkup|check.up|consultation)\\b",
       "\\bi\\s+(need|want)\\b.{0,30}\\b(appointment|dentist|dental|tooth|teeth)\\b",
-      "\\b(book|schedule)\\b"
+      "\\b(book|schedule|pannanum|karna|krna)\\b"
     ],
     "view_appointments": [
       "\\b(view|show|see|check|list)\\b.{0,30}\\bappointment",
@@ -325,6 +337,8 @@
     "phone": "What is your phone number?",
     "date": "What date would you like to come in?",
     "time": "What time works best for you,for example 11:00 AM or 12:00 PM.",
+    "old_date": "On which date is your current appointment?",
+    "old_time": "At what time was it scheduled?",
     "reason": "Before I confirm, may I know the reason for your visit? For example, is it for a checkup, a toothache, or something else?",
     "new_date": "What is the new date for your appointment?",
     "new_time": "What is the new time for your appointment?,for example 11:00 AM or 12:00 PM"

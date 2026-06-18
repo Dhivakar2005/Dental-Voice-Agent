@@ -218,11 +218,12 @@ function initParallax() {
 }
 
 //  NAVBAR SCROLL ─
+//  NAVBAR SCROLL ─
 function initNavbar() {
   const nav = document.getElementById('navbar');
   if (!nav) return;
   window.addEventListener('scroll', () => {
-    nav.classList.toggle('scrolled', window.scrollY > 60);
+    nav.classList.toggle('scrolled', window.scrollY > 50);
   }, { passive: true });
 
   //  USER DROPDOWN 
@@ -231,40 +232,11 @@ function initNavbar() {
   if (pill && dropdown) {
     pill.addEventListener('click', (e) => {
       e.stopPropagation();
-      dropdown.classList.toggle('show');
+      const isHidden = dropdown.style.display === 'none';
+      dropdown.style.display = isHidden ? 'block' : 'none';
     });
-    document.addEventListener('click', () => dropdown.classList.remove('show'));
-  }
-
-  //  BACK TO TOP 
-  const btt = document.getElementById('backToTop');
-  if (btt) {
-    window.addEventListener('scroll', () => {
-      btt.classList.toggle('visible', window.scrollY > 800);
-    }, { passive: true });
-  }
-
-  //  CINEMATIC SCROLL 
-  const scrollHint = document.getElementById('heroScrollHint');
-  if (scrollHint) {
-    scrollHint.addEventListener('click', (e) => {
-      e.preventDefault();
-      const targetId = scrollHint.getAttribute('href');
-      const targetEl = document.querySelector(targetId);
-      if (!targetEl) return;
-
-      let overlay = document.querySelector('.scroll-transition');
-      if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.className = 'scroll-transition';
-        document.body.appendChild(overlay);
-      }
-
-      overlay.classList.add('active');
-      setTimeout(() => {
-        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        setTimeout(() => overlay.classList.remove('active'), 600);
-      }, 100);
+    document.addEventListener('click', () => {
+      if (dropdown) dropdown.style.display = 'none';
     });
   }
 }
@@ -310,43 +282,53 @@ function initCounters() {
 }
 
 //  TICKER ─
-function initTicker() {
-  const track = document.querySelector('.ticker-track');
-  if (!track) return;
-  track.addEventListener('mouseenter', () => track.style.animationPlayState = 'paused');
-  track.addEventListener('mouseleave', () => track.style.animationPlayState = 'running');
+//  FAQ ACCORDION ─
+function initFAQ() {
+  const items = document.querySelectorAll('.faq-item');
+  items.forEach(item => {
+    const question = item.querySelector('.faq-question');
+    question.addEventListener('click', () => {
+      const isActive = item.classList.contains('active');
+      items.forEach(i => i.classList.remove('active'));
+      if (!isActive) item.classList.add('active');
+      
+      const icon = question.querySelector('i');
+      items.forEach(i => {
+        const qIcon = i.querySelector('.faq-question i');
+        if (qIcon) qIcon.className = 'fas fa-plus';
+      });
+      if (!isActive && icon) icon.className = 'fas fa-minus';
+    });
+  });
 }
 
-//  RIPPLE ─
+//  RIPPLE (Simplified for new design) ─
 function initRipple() {
-  document.querySelectorAll('.cta-primary, .btn-book, .btn-nav-book').forEach(btn => {
+  document.querySelectorAll('.btn-primary').forEach(btn => {
     btn.addEventListener('click', function (e) {
       const rect = this.getBoundingClientRect();
       const ripple = document.createElement('span');
       ripple.style.cssText = `
         position:absolute;border-radius:50%;
-        width:220px;height:220px;
-        background:rgba(255,255,255,0.2);
+        width:100px;height:100px;
+        background:rgba(255,255,255,0.3);
         transform:translate(-50%,-50%) scale(0);
         left:${e.clientX - rect.left}px;
         top:${e.clientY - rect.top}px;
         pointer-events:none;
-        animation:rippleAnim .65s ease-out forwards;
+        animation:rippleAnim .6s ease-out forwards;
       `;
       this.style.position = 'relative';
       this.style.overflow = 'hidden';
       this.appendChild(ripple);
-      setTimeout(() => ripple.remove(), 700);
+      setTimeout(() => ripple.remove(), 600);
     });
   });
 
-  // Inject keyframe once
   if (!document.getElementById('rippleStyle')) {
     const s = document.createElement('style');
     s.id = 'rippleStyle';
-    s.textContent = `
-      @keyframes rippleAnim { to { transform:translate(-50%,-50%) scale(3);opacity:0; } }
-    `;
+    s.textContent = `@keyframes rippleAnim { to { transform:translate(-50%,-50%) scale(4);opacity:0; } }`;
     document.head.appendChild(s);
   }
 }
@@ -357,8 +339,7 @@ let modalVoiceAssistant = null;
 window.openBookingModal = function () {
   const modal = document.getElementById('bookingModal');
   if (!modal) return;
-  modal.classList.add('open');
-  modal.classList.add('active'); // legacy class support
+  modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 
   if (!modalVoiceAssistant) {
@@ -372,8 +353,7 @@ window.openBookingModal = function () {
 window.closeBookingModal = function () {
   const modal = document.getElementById('bookingModal');
   if (!modal) return;
-  modal.classList.remove('open');
-  modal.classList.remove('active');
+  modal.style.display = 'none';
   document.body.style.overflow = '';
 
   if (modalVoiceAssistant && modalVoiceAssistant.isActive) {
@@ -394,8 +374,9 @@ class VoiceAssistant {
   constructor(suffix = '') {
     this.sessionId = null;
     this.isActive = false;
-    this.isListening = false;
     this.recognition = null;
+    this.mediaRecorder = null;
+    this.audioChunks = [];
     this.suffix = suffix;
 
     this.startBtn = document.getElementById('startBtn' + suffix);
@@ -424,22 +405,11 @@ class VoiceAssistant {
   }
 
   _initSpeech() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { if (this.voiceBtn) this.voiceBtn.style.display = 'none'; return; }
-    this.recognition = new SR();
-    this.recognition.continuous = false;
-    this.recognition.interimResults = false;
-    this.recognition.lang = 'en-US';
-    this.recognition.onresult = e => {
-      this.messageInput.value = e.results[0][0].transcript;
-      this.sendMessage();
-    };
-    this.recognition.onerror = e => {
-      console.error('Speech error:', e.error);
-      this.updateStatus('Voice error — try again', 'error');
-      this.stopListening();
-    };
-    this.recognition.onend = () => this.stopListening();
+    // We no longer use browser SpeechRecognition. 
+    // We use MediaRecorder + Deepgram API for superior multilingual support.
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (this.voiceBtn) this.voiceBtn.style.display = 'none';
+    }
   }
 
   async startSession() {
@@ -520,14 +490,7 @@ class VoiceAssistant {
 
       this.speakText(fullResponse);
 
-      // Auto-reset on goodbye
-      const isGoodbye = /goodbye|have a great day|take care|see you|thank you for calling/i.test(fullResponse);
-      if (isGoodbye) {
-        this.updateStatus('Conversation ended', 'inactive');
-        setTimeout(() => this.startSession(), 3000);
-      } else {
-        this.updateStatus('Ready — type or speak', 'active');
-      }
+      this.updateStatus('Ready — type or speak', 'active');
     } catch (err) {
       this.hideThinking();
       console.error(err);
@@ -588,24 +551,72 @@ class VoiceAssistant {
   }
 
   toggleVoiceInput() {
-    if (!this.recognition) {
-      alert('Voice input is not supported. Please use Chrome, Edge, or Safari.');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Voice input is not supported in this browser.');
       return;
     }
-    this.isListening ? this.recognition.stop() : this.startListening();
+    this.isListening ? this.stopListening() : this.startListening();
   }
 
-  startListening() {
-    this.isListening = true;
-    if (this.voiceBtn) this.voiceBtn.classList.add('listening');
-    this.updateStatus('Listening… speak now', 'listening');
-    this.recognition.start();
+  async startListening() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.mediaRecorder = new MediaRecorder(stream);
+      this.audioChunks = [];
+
+      this.mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) this.audioChunks.push(e.data);
+      };
+
+      this.mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+        this.uploadAudio(audioBlob);
+        // Stop all tracks to release mic
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      this.isListening = true;
+      if (this.voiceBtn) this.voiceBtn.classList.add('listening');
+      this.updateStatus('Listening… speak now', 'listening');
+      this.mediaRecorder.start();
+    } catch (err) {
+      console.error('Mic error:', err);
+      this.updateStatus('Microphone access denied', 'error');
+    }
   }
 
   stopListening() {
-    this.isListening = false;
-    if (this.voiceBtn) this.voiceBtn.classList.remove('listening');
-    if (this.isActive) this.updateStatus('Ready — type or speak', 'active');
+    if (this.mediaRecorder && this.isListening) {
+      this.isListening = false;
+      this.mediaRecorder.stop();
+      if (this.voiceBtn) this.voiceBtn.classList.remove('listening');
+      this.updateStatus('Transcribing...', 'loading');
+    }
+  }
+
+  async uploadAudio(blob) {
+    const formData = new FormData();
+    formData.append('audio', blob, 'voice_msg.webm');
+
+    try {
+      const res = await fetch('/api/stt', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+
+      if (data.success && data.transcript) {
+        this.messageInput.value = data.transcript;
+        this.updateStatus('Ready — type or speak', 'active');
+        this.sendMessage();
+      } else {
+        this.updateStatus(data.error || 'Could not understand', 'error');
+        setTimeout(() => this.updateStatus('Ready — type or speak', 'active'), 3000);
+      }
+    } catch (err) {
+      console.error('STT Upload error:', err);
+      this.updateStatus('Transcription failed', 'error');
+    }
   }
 
   addMessage(role, text) {
@@ -709,21 +720,14 @@ function initHeroReveal() {
 
 //  INIT 
 document.addEventListener('DOMContentLoaded', () => {
-  // Load speech voices
   if ('speechSynthesis' in window) {
     window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
   }
 
-  // Motion systems
-  window._cursor = new CustomCursor();
-  new ParticleField();
-  initParallax();
-  initScrollReveal();
   initNavbar();
-  initCounters();
-  initTicker();
+  initFAQ();
   initRipple();
-  initHeroReveal();
-
-  console.log('✦ Smile Dental — All systems GO');
+  initScrollReveal();
+  
+  console.log('✦ Smile Dental — Premium UI Initialized');
 });

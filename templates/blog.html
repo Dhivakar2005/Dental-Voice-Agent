@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Blog | Smile Dental — Dental Health & Tips{% endblock %}
+
+{% block content %}
+<section class="section-padding" style="background: var(--bg-soft); min-height: 80vh;">
+    <div class="container">
+        <div class="text-center" style="margin-bottom: 4rem;">
+            <span class="eyebrow">Insights & Advice</span>
+            <h1 class="section-title">Dental <span>Blog</span></h1>
+            <p class="section-subtitle">Stay informed with the latest tips, treatments, and trends in dental care.</p>
+        </div>
+
+        <div class="blog-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2.5rem;">
+            {% for blog in blogs %}
+            <article class="premium-card reveal">
+                <div class="card-image-wrapper" style="height: 250px;">
+                    <img src="{{ url_for('static', filename='images/' + blog.image) }}" alt="{{ blog.title }}" class="card-image">
+                    <div class="card-badge">{{ blog.category }}</div>
+                </div>
+                <div class="card-content" style="padding: 2rem;">
+                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-muted);">
+                        <span><i class="far fa-calendar-alt" style="margin-right: 5px;"></i> {{ blog.date }}</span>
+                        <span><i class="far fa-user" style="margin-right: 5px;"></i> {{ blog.author }}</span>
+                    </div>
+                    <h2 style="font-size: 1.5rem; margin-bottom: 1rem; font-family: var(--font-head); color: var(--primary-dark);">{{ blog.title }}</h2>
+                    <p style="color: var(--text-muted); line-height: 1.6; margin-bottom: 1.5rem;">{{ blog.excerpt }}</p>
+                    <div class="card-footer" style="padding-top: 1.5rem; border-top: 1px solid var(--bg-alt);">
+                        <button onclick="openBlogModal('{{ blog.id }}')" class="explore-link" style="background: none; border: none; cursor: pointer; color: var(--primary); font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                            Read Full Article <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Blog Detail Modal -->
+            <div id="blogModal-{{ blog.id }}" class="blog-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 11000; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(8px);">
+                <div class="modal-content" style="background: white; width: 100%; max-width: 800px; max-height: 90vh; overflow-y: auto; border-radius: var(--radius-2xl); position: relative;">
+                    <button onclick="closeBlogModal('{{ blog.id }}')" style="position: absolute; top: 20px; right: 20px; background: white; border: none; width: 40px; height: 40px; border-radius: 50%; box-shadow: var(--shadow-md); cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center;"><i class="fas fa-times"></i></button>
+                    
+                    <img src="{{ url_for('static', filename='images/' + blog.image) }}" alt="{{ blog.title }}" style="width: 100%; height: 400px; object-fit: cover;">
+                    
+                    <div style="padding: 3rem;">
+                        <span class="eyebrow">{{ blog.category }}</span>
+                        <h2 style="font-size: 2.5rem; margin: 1rem 0; font-family: var(--font-head); line-height: 1.2;">{{ blog.title }}</h2>
+                        
+                        <div style="display: flex; align-items: center; gap: 2rem; margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--bg-alt);">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 48px; height: 48px; background: var(--primary-glow); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); font-weight: 700;">{{ blog.author[4] }}</div>
+                                <div>
+                                    <div style="font-weight: 700;">{{ blog.author }}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">Dental Specialist</div>
+                                </div>
+                            </div>
+                            <div style="color: var(--text-muted); font-size: 0.9rem;">
+                                <i class="far fa-calendar-alt"></i> Published on {{ blog.date }}
+                            </div>
+                        </div>
+                        
+                        <div style="font-size: 1.15rem; line-height: 1.8; color: var(--text-muted);">
+                            <p style="margin-bottom: 1.5rem; font-weight: 500; color: var(--primary-dark);">{{ blog.excerpt }}</p>
+                            <p>{{ blog.content }}</p>
+                            <p style="margin-top: 2rem;">Oral health is a vital component of your overall well-being. At Smile Dental, we are committed to providing the education and care you need to maintain a healthy smile for life. If you have questions about any of the topics covered in this article, don't hesitate to reach out to our team of specialists.</p>
+                        </div>
+                        
+                        <div style="margin-top: 4rem; padding: 2rem; background: var(--bg-soft); border-radius: var(--radius-lg); text-align: center;">
+                            <h3>Ready to prioritize your oral health?</h3>
+                            <p style="margin-bottom: 1.5rem;">Book a consultation with our experts today.</p>
+                            <button onclick="closeBlogModal('{{ blog.id }}'); openBookingModal();" class="btn btn-primary">Schedule Appointment</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<script>
+    function openBlogModal(id) {
+        document.getElementById('blogModal-' + id).style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeBlogModal(id) {
+        document.getElementById('blogModal-' + id).style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+
+    // Close on click outside
+    window.addEventListener('click', function(event) {
+        if (event.target.classList.contains('blog-modal')) {
+            event.target.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+    });
+</script>
+
+<style>
+    .blog-modal {
+        animation: fadeIn 0.3s ease-out;
+    }
+    .modal-content {
+        animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @keyframes slideUp {
+        from { transform: translateY(50px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+</style>
+{% endblock %}

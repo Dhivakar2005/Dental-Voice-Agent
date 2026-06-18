@@ -15,40 +15,80 @@ load_dotenv()
 logger = structlog.get_logger(__name__)
 
 # MongoDB Configuration
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://dhikrish42:dhivs4321mdb@cluster.gyo49rj.mongodb.net/?appName=Cluster")
+MONGO_URI = os.environ.get("MONGO_URI")
 DB_NAME = "dental_assistant"
+
+class SafeCollection:
+    def __init__(self, name):
+        self.name = name
+    def __getattr__(self, name):
+        return self
+    def __call__(self, *args, **kwargs):
+        logger.warning("mongodb_not_connected_operation_ignored", collection=self.name)
+        return None
+    def find_one(self, *args, **kwargs):
+        logger.warning("mongodb_not_connected_find_one_ignored", collection=self.name)
+        return None
+    def find(self, *args, **kwargs):
+        logger.warning("mongodb_not_connected_find_ignored", collection=self.name)
+        return []
+    def insert_one(self, *args, **kwargs):
+        logger.warning("mongodb_not_connected_insert_one_ignored", collection=self.name)
+        class DummyResult:
+            inserted_id = None
+        return DummyResult()
+    def update_one(self, *args, **kwargs):
+        logger.warning("mongodb_not_connected_update_one_ignored", collection=self.name)
+        class DummyResult:
+            modified_count = 0
+        return DummyResult()
+    def count_documents(self, *args, **kwargs):
+        logger.warning("mongodb_not_connected_count_documents_ignored", collection=self.name)
+        return 0
+
+class SafeDatabase:
+    def __getitem__(self, name):
+        return SafeCollection(name)
 
 class DatabaseManager:
     def __init__(self, app=None):
-        self.client = MongoClient(
-            MONGO_URI,
-            tls=True,
-            tlsCAFile=certifi.where()
-        )
-        # Using the specified DB_NAME to ensure consistency
-        self.db = self.client[DB_NAME]
-        self.users = self.db["users"]
         self.bcrypt = Bcrypt(app) if app else Bcrypt()
         self.jwt_secret = os.environ.get("JWT_SECRET", "super-secret-smile-dental-key-2026")
         
-        # Enforce Primary Keys (Unique Indexes)
         try:
+            self.client = MongoClient(
+                MONGO_URI,
+                tls=True,
+                tlsCAFile=certifi.where(),
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=5000
+            )
+            # Using the specified DB_NAME to ensure consistency
+            self.db = self.client[DB_NAME]
+            self.users = self.db["users"]
+            
+            # Enforce Primary Keys (Unique Indexes)
             self.users.create_index("email", unique=True)
             self.db["customers"].create_index("customer_id", unique=True)
             # Foregin Key Index for Appointments
             self.db["appointments"].create_index([("customer_id", 1)])
             self.db["appointments"].create_index([("date", 1)])
             self.db["appointments"].create_index([("doctor_id", 1)])
-            
 
             # Doctors ID unique index
             self.db["doctors"].create_index("doctor_id", unique=True)
             
             logger.info("mongodb_indexes_ensured")
         except Exception as e:
-            logger.error("index_creation_error", error=str(e))
+            logger.error("mongodb_connection_or_index_creation_error", error=str(e))
+            self.client = None
+            self.db = SafeDatabase()
+            self.users = SafeCollection("users")
 
-        self.ensure_admin_exists()
+        try:
+            self.ensure_admin_exists()
+        except Exception as e:
+            logger.error("ensure_admin_exists_failed", error=str(e))
 
     def ensure_admin_exists(self):
         admin_email = "admin@gmail.com"

@@ -43,6 +43,37 @@ def _normalize_phone(phone: str) -> str:
     return phone
 
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# MEDIA HELPERS
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def get_media_url(media_id: str) -> str:
+    """Fetch the actual download URL for a media file from Meta."""
+    url = f"https://graph.facebook.com/v19.0/{media_id}"
+    headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        return resp.json().get("url")
+    except Exception as e:
+        logger.error(f"[WA] Failed to get media URL for {media_id}: {e}")
+        return None
+
+
+def download_media(media_url: str) -> bytes:
+    """Download the binary media content from Meta's servers."""
+    headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+    try:
+        resp = requests.get(media_url, headers=headers, timeout=20)
+        resp.raise_for_status()
+        return resp.content
+    except Exception as e:
+        logger.error(f"[WA] Failed to download media from {media_url}: {e}")
+        return None
+
+
+
+
 def send_whatsapp_message(phone: str, message: str) -> bool:
     """
     Core sender — POST text message via WhatsApp Cloud API.
@@ -68,17 +99,29 @@ def send_whatsapp_message(phone: str, message: str) -> bool:
         "Content-Type":  "application/json"
     }
 
-    try:
-        resp = requests.post(GRAPH_API_URL, json=payload, headers=headers, timeout=10)
-        if resp.status_code == 200:
-            logger.info(f"[WA] ✅ Sent to {to}")
-            return True
-        else:
-            logger.error(f"[WA] ❌ Failed ({resp.status_code}): {resp.text}")
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            resp = requests.post(GRAPH_API_URL, json=payload, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                logger.info(f"[WA] ✅ Sent to {to}")
+                return True
+            else:
+                logger.error(f"[WA] ❌ Failed ({resp.status_code}): {resp.text}")
+                return False
+        except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
+            err_msg = str(e).lower()
+            if any(x in err_msg for x in ["bad record mac", "decryption failed", "wrong version"]):
+                logger.warning(f"[WA] ⚠️ SSL/Network error, retrying... (Attempt {attempt+1}/{max_retries})")
+                import time
+                time.sleep(1)
+                continue
+            logger.error(f"[WA] ❌ Connection error: {e}")
             return False
-    except requests.exceptions.RequestException as e:
-        logger.error(f"[WA] ❌ Request error: {e}")
-        return False
+        except requests.exceptions.RequestException as e:
+            logger.error(f"[WA] ❌ Request error: {e}")
+            return False
+    return False
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Our Services | Smile Dental{% endblock %}
+
+{% block content %}
+    <section class="hero reveal" style="padding: 160px 0 80px; background: var(--bg-soft);">
+        <div class="container text-center">
+            <span class="eyebrow">Comprehensive Care</span>
+            <h1 class="section-title" style="font-size: clamp(2.5rem, 6vw, 4rem);">World-Class <span>Dental Treatments</span></h1>
+            <p class="section-subtitle" style="max-width: 800px; margin: 0 auto;">We offer a full spectrum of dental treatments tailored to your unique needs, using the most advanced techniques and materials in the industry.</p>
+        </div>
+    </section>
+
+    <!-- SERVICE CATEGORIES -->
+    <section class="section-padding">
+        <div class="container">
+            <div class="text-center" style="margin-bottom: 6rem;">
+                <span class="eyebrow">Our Departments</span>
+                <h2 class="section-title">World Class <span>Specialties</span></h2>
+                <p class="section-subtitle">Comprehensive dental solutions under one roof, powered by advanced technology.</p>
+            </div>
+
+            <div class="services-grid">
+                <!-- General Care -->
+                <a href="/services/general-checkup" class="service-card reveal" style="text-decoration: none; color: inherit; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+                    <div style="height: 220px; overflow: hidden; position: relative;">
+                        <img src="{{ url_for('static', filename='images/home_general_dentistry_1777381064292.png') }}" alt="General Care" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div style="position: absolute; top: 15px; left: 15px; background: white; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--primary); box-shadow: var(--shadow-sm);"><i class="fas fa-tooth"></i></div>
+                    </div>
+                    <div style="padding: 2.5rem;">
+                        <h3 style="margin-bottom: 10px;">General Care</h3>
+                        <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 2rem;">Routine checkups, scaling, and root canals to maintain a healthy foundation for your smile.</p>
+                        <span style="color: var(--primary); font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">View Details <i class="fas fa-arrow-right" style="margin-left: 5px;"></i></span>
+                    </div>
+                </a>
+
+                <!-- Aesthetic Design -->
+                <a href="/services/teeth-whitening" class="service-card reveal" style="text-decoration: none; color: inherit; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+                    <div style="height: 220px; overflow: hidden; position: relative;">
+                        <img src="{{ url_for('static', filename='images/home_cosmetic_dentistry_1777381099653.png') }}" alt="Cosmetic" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div style="position: absolute; top: 15px; left: 15px; background: white; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--secondary); box-shadow: var(--shadow-sm);"><i class="fas fa-magic"></i></div>
+                    </div>
+                    <div style="padding: 2.5rem;">
+                        <h3 style="margin-bottom: 10px;">Aesthetic Design</h3>
+                        <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 2rem;">Whitening, veneers, and smile makeovers for a confident, radiant look you'll love.</p>
+                        <span style="color: var(--primary); font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">View Details <i class="fas fa-arrow-right" style="margin-left: 5px;"></i></span>
+                    </div>
+                </a>
+
+                <!-- Orthodontics -->
+                <a href="/services/orthodontics" class="service-card reveal" style="text-decoration: none; color: inherit; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+                    <div style="height: 220px; overflow: hidden; position: relative;">
+                        <img src="{{ url_for('static', filename='images/service_orthodontics_1777381263731.png') }}" alt="Orthodontics" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div style="position: absolute; top: 15px; left: 15px; background: white; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--primary); box-shadow: var(--shadow-sm);"><i class="fas fa-align-center"></i></div>
+                    </div>
+                    <div style="padding: 2.5rem;">
+                        <h3 style="margin-bottom: 10px;">Orthodontics</h3>
+                        <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 2rem;">Braces and clear aligners to correct alignment and improve your bite and confidence.</p>
+                        <span style="color: var(--primary); font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">View Details <i class="fas fa-arrow-right" style="margin-left: 5px;"></i></span>
+                    </div>
+                </a>
+
+                <!-- Dental Implants -->
+                <a href="/services/dental-implants" class="service-card reveal" style="text-decoration: none; color: inherit; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+                    <div style="height: 220px; overflow: hidden; position: relative;">
+                        <img src="{{ url_for('static', filename='images/home_dental_implants_1777381145965.png') }}" alt="Implants" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div style="position: absolute; top: 15px; left: 15px; background: white; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--secondary); box-shadow: var(--shadow-sm);"><i class="fas fa-teeth"></i></div>
+                    </div>
+                    <div style="padding: 2.5rem;">
+                        <h3 style="margin-bottom: 10px;">Dental Implants</h3>
+                        <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 2rem;">Permanent and natural-looking solutions to restore missing teeth with surgical precision.</p>
+                        <span style="color: var(--primary); font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">View Details <i class="fas fa-arrow-right" style="margin-left: 5px;"></i></span>
+                    </div>
+                </a>
+
+                <!-- Oral Surgery -->
+                <a href="/services/wisdom-tooth" class="service-card reveal" style="text-decoration: none; color: inherit; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+                    <div style="height: 220px; overflow: hidden; position: relative;">
+                        <img src="{{ url_for('static', filename='images/service_surgery_1777381290449.png') }}" alt="Oral Surgery" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div style="position: absolute; top: 15px; left: 15px; background: white; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--primary); box-shadow: var(--shadow-sm);"><i class="fas fa-notes-medical"></i></div>
+                    </div>
+                    <div style="padding: 2.5rem;">
+                        <h3 style="margin-bottom: 10px;">Oral Surgery</h3>
+                        <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 2rem;">Expert wisdom tooth removal and complex clinical extractions in a sterile environment.</p>
+                        <span style="color: var(--primary); font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">View Details <i class="fas fa-arrow-right" style="margin-left: 5px;"></i></span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- TRUST SECTION -->
+    <section class="section-padding reveal" style="background: var(--bg-soft);">
+        <div class="container">
+            <div class="about-grid" style="align-items: center; gap: 6rem;">
+                <div class="reveal">
+                    <img src="{{ url_for('static', filename='images/clinical_safety_standards_1777382360686.png') }}" alt="Safety" style="width: 100%; border-radius: var(--radius-2xl); box-shadow: var(--shadow-xl);">
+                </div>
+                <div class="reveal">
+                    <span class="eyebrow">Clinical Standards</span>
+                    <h2 class="section-title">Your <span>Safety</span> is Our Priority</h2>
+                    <p style="margin-bottom: 2.5rem; font-size: 1.1rem; color: var(--text-muted);">We follow strict international protocols for sterilization and patient safety. Every instrument is processed through our certified sterilization center.</p>
+                    
+                    <div class="check-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                        <div class="check-item"><i class="fas fa-shield-virus"></i> Class-B Autoclave</div>
+                        <div class="check-item"><i class="fas fa-user-shield"></i> Premium PPE</div>
+                        <div class="check-item"><i class="fas fa-tint"></i> RO Purified Lines</div>
+                        <div class="check-item"><i class="fas fa-air-freshener"></i> HEPA Filtration</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="section-padding reveal">
+        <div class="container">
+            <div style="background: var(--text-main); padding: 6rem 2rem; border-radius: var(--radius-2xl); color: white; text-align: center; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: var(--primary); opacity: 0.1; border-radius: 50%;"></div>
+                <h2 style="font-size: clamp(2rem, 5vw, 3rem); margin-bottom: 1.5rem; font-family: var(--font-head);">Need Expert Advice?</h2>
+                <p style="opacity: 0.8; margin-bottom: 3rem; max-width: 650px; margin-left: auto; margin-right: auto; font-size: 1.2rem;">Our AI Dental Assistant can answer specific questions about treatments and help you choose the right specialist.</p>
+                <button onclick="openBookingModal()" class="btn" style="background: white; color: var(--primary); font-weight: 700; padding: 1.25rem 4rem;">Talk to AI Now</button>
+            </div>
+        </div>
+    </section>
+{% endblock %}

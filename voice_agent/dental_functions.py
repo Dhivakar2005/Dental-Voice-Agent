@@ -68,6 +68,15 @@ def get_session_customer_id() -> str | None:
     """Return the verified customer_id for the current call, or None."""
     return _get_session().get("customer_id")
 
+def set_call_language(lang: str) -> None:
+    """Store the detected language for the current call in thread-local session."""
+    _get_session()["lang"] = lang
+    logger.info("call_language_set", lang=lang)
+
+def get_call_language() -> str:
+    """Return the detected language for the current call (default 'en')."""
+    return _get_session().get("lang", "en")
+
 # Ensure parent directory is importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -78,8 +87,22 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _agent = None
 _agent_lock = threading.Lock()
 
+def initialize_agent(calendar, sheets, vdb):
+    """Pre-initialize the shared agent singleton with global manager instances."""
+    global _agent
+    with _agent_lock:
+        from app import DentalVoiceAgent
+        _agent = DentalVoiceAgent(
+            use_voice=False, 
+            streaming=False,
+            calendar=calendar,
+            sheets=sheets,
+            vdb=vdb
+        )
+        logger.info("dental_voice_agent_singleton_pre_initialized")
+
 def _get_agent():
-    """Return a shared DentalVoiceAgent instance, initialised on first call."""
+    """Return a shared DentalVoiceAgent instance, initialising if needed."""
     global _agent
     if _agent is None:
         with _agent_lock:
@@ -336,46 +359,50 @@ def lookup_appointments(phone: str, date: str = None, time: str = None) -> dict:
         # Sort chronologically
         upcoming.sort(key=lambda x: x["sort_key"])
 
+        from language_service import get_tool_response, format_indian_date, format_indian_time
+
         # FILTERING: If specific date/time requested, narrow down
         if date and time:
             target_time = normalize_time(time)
             matches = [a for a in upcoming if normalize_time(a["time"]) == target_time]
             if matches:
-                return {"result": f"I found your appointment on {date} at {time}. Tell your new date and time for appointment."}
+                return {"result": f"I found your appointment on {format_indian_date(date)} at {format_indian_time(time)}. Tell your new date and time for appointment."}
             else:
                 return {"result": f"I'm sorry, I couldn't find an appointment on that date and time."}
         elif date:
             matches = [a for a in upcoming if a["date"] == date]
             if matches:
                 count = len(matches)
-                parts = [f"{a['time']}" for a in matches]
+                parts = [format_indian_time(a['time']) for a in matches]
                 if count == 1:
-                    return {"result": f"On {date}, you have one appointment at {parts[0]}."}
+                    return {"result": f"On {format_indian_date(date)}, you have one appointment at {parts[0]}."}
                 else:
-                    return {"result": f"On {date}, you have {count} appointments: at {', and '.join(parts)}."}
+                    return {"result": f"On {format_indian_date(date)}, you have {count} appointments: at {', and '.join(parts)}."}
             else:
-                return {"result": f"I'm sorry, I couldn't find an appointment on {date}."}
+                return {"result": f"I'm sorry, I couldn't find an appointment on {format_indian_date(date)}."}
 
         # Cap at 3 for generic voice listing
         upcoming = upcoming[:3]
 
         if not upcoming:
-            return {"result": f"I don't see any upcoming appointments on file for {patient_name}."}
+            lang = get_call_language()
+            return {"result": get_tool_response("no_appointments", lang)}
 
         count = len(upcoming)
         parts = []
         for a in upcoming:
-            part = f"{a['date']} at {a['time']}"
+            part = f"{format_indian_date(a['date'])} at {format_indian_time(a['time'])}"
             if a['reason']:
                 part += f" for {a['reason']}"
             parts.append(part)
 
+        lang    = get_call_language()
+        summary = ", and ".join(parts)
+
         if count == 1:
-            summary = parts[0]
-            msg = f"I found one upcoming appointment for {patient_name}: {summary}."
+            msg = get_tool_response("lookup_one", lang, summary=summary)
         else:
-            summary = ", and ".join(parts)
-            msg = f"I found {count} upcoming appointments for {patient_name}: {summary}."
+            msg = get_tool_response("lookup_many", lang, count=count, summary=summary)
 
         return {"result": msg}
     except Exception as e:
@@ -395,16 +422,12 @@ def get_available_slots(date: str) -> dict:
     try:
         agent = _get_agent()
         slots = agent.sheets.get_available_slots(date)
+        from language_service import get_tool_response
+        lang = get_call_language()
         if not slots:
-            return {"result": f"I'm sorry, we don't have any free slots available on {date}."}
-        
+            return {"result": get_tool_response("no_slots", lang, date=date)}
         listing = ", ".join(slots)
-        return {
-            "result": (
-                f"On {date}, we have available slots at "
-                f"{listing}. Which time works best for you?"
-            )
-        }
+        return {"result": get_tool_response("slots_available", lang, date=date, listing=listing)}
     except Exception as e:
         err = f"I'm sorry, I couldn't check availability. Error: {str(e)}"
         logger.error("tool_error", tool="get_available_slots", error=str(e))

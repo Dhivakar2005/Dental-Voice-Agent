@@ -114,7 +114,7 @@ class ChainNormalizer:
                     raise
             else:
                 raise Exception("Valid credentials not found. Please authenticate first.")
-        return build("sheets", "v4", credentials=creds)
+        return build("sheets", "v4", credentials=creds, cache_discovery=False, static_discovery=False)
 
     #  Helpers 
 

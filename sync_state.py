@@ -49,7 +49,7 @@ if not creds or not creds.valid:
         print("Google Sheets credentials not found. Run main app first.")
         sys.exit(1)
 
-service = build("sheets", "v4", credentials=creds)
+service = build("sheets", "v4", credentials=creds, cache_discovery=False, static_discovery=False)
 
 with open(CONFIG_PATH) as f:
     spreadsheet_id = json.load(f)["spreadsheet_id"]

@@ -13,11 +13,12 @@ def setup_logger():
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
-        level=logging.INFO,
+        level=logging.WARNING,
     )
     
-    # Suppress verbose APScheduler logs
+    # Suppress verbose loggers
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)
     
     # Setup structlog
     structlog.configure(

@@ -73,7 +73,7 @@ TIMEZONE        = "Asia/Kolkata"
 CUSTOMERS_SHEET = "Customers"
 TOKEN_PATH      = os.path.join(os.path.dirname(__file__), "..", "token.pickle")
 SHEETS_CONFIG   = os.path.join(os.path.dirname(__file__), "..", "sheets_config.json")
-SCOPES          = ["https://www.googleapis.com/auth/spreadsheets"]
+SCOPES          = ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/spreadsheets"]
 
 EMERGENCY_KEYWORDS = ["pain", "swelling", "bleeding", "emergency", "urgent"]
 
@@ -130,7 +130,26 @@ class AutomationEngine:
                     raise
             else:
                 raise RuntimeError("Google Sheets not authenticated. Run main app first.")
-        return build("sheets", "v4", credentials=creds)
+        return build("sheets", "v4", credentials=creds, cache_discovery=False, static_discovery=False)
+
+    def _execute_with_retry(self, request, max_retries=3):
+        """Execute a Google API request with retries for transient SSL/Network errors."""
+        import time
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                return request.execute()
+            except Exception as e:
+                last_err = e
+                err_msg = str(e).lower()
+                # Check for various network/SSL/timeout patterns
+                transient_patterns = ["ssl", "timeout", "timed out", "eof", "connection reset", "request-sent", "broken pipe", "violation of protocol"]
+                if any(x in err_msg for x in transient_patterns):
+                    logger.warning("transient_api_error_retrying", attempt=attempt+1, error=str(e))
+                    time.sleep(2 * (attempt + 1))
+                    continue
+                raise e
+        raise last_err
 
     def _load_spreadsheet_id(self) -> str:
         with open(SHEETS_CONFIG, "r") as f:
@@ -220,15 +239,15 @@ class AutomationEngine:
 
 
 
-    def _mark_notification_sent(self, cid, date_, time_):
+    def _mark_notification_sent(self, cid, date_, time_, type_=None):
         """Update Column K (WhatsApp Conf) in the sheet to 'SENT'.
         Uses CID+date+time scan — acceptable for notification marking (write-once, idempotent).
         """
         try:
-            result = self.service.spreadsheets().values().get(
+            result = self._execute_with_retry(self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
                 range=f"{CUSTOMERS_SHEET}!A:I"
-            ).execute()
+            ))
             values = result.get('values', [])
             if not values:
                 return False
@@ -249,18 +268,23 @@ class AutomationEngine:
                         and str(row[3]).strip() == search_date
                         and str(row[4]).strip().upper() == search_time
                         and row_type not in ("EXPIRED", "CANCELLED")):
+                    
+                    # If a specific type is requested, prioritize it
+                    if type_ and row_type != str(type_).upper():
+                        continue
+                        
                     row_num = i
                     break
 
             if not row_num:
                 return False
 
-            self.service.spreadsheets().values().update(
+            self._execute_with_retry(self.service.spreadsheets().values().update(
                 spreadsheetId=self.spreadsheet_id,
                 range=f"{CUSTOMERS_SHEET}!K{row_num}",
                 valueInputOption="RAW",
                 body={"values": [["SENT"]]}
-            ).execute()
+            ))
             logger.info(f"[ENGINE] 🏁 Marked K{row_num} as SENT for {cid}")
             return True
         except Exception as e:
@@ -282,12 +306,17 @@ class AutomationEngine:
         time_  = row.get("appointment_time", "")
         reason = row.get("appointment_reason", "")
         doctor = row.get("doctor", "Unassigned")
+        type_val = row.get("type", "BOOKED")
+        future_date = row.get("future_date", "")
 
         #  ABSOLUTE SAFETY CHECK ─
-        if self._is_past_datetime(date_, time_):
-            logger.info(f"[ENGINE] ⏳ Skipping past appointment: {cid} | {date_} {time_}")
+        # For PREDICTED rows, the date we care about is the future_date (Col H)
+        check_date = future_date if type_val == "PREDICTED" and future_date and future_date.upper() != "N/A" else date_
+        
+        if self._is_past_datetime(check_date, time_):
+            logger.info(f"[ENGINE] ⏳ Skipping past appointment: {cid} | {check_date} {time_}")
             # MUST mark as sent so the watcher doesn't find it again
-            self._mark_notification_sent(cid, date_, time_)
+            self._mark_notification_sent(cid, date_, time_, type_=type_val)
             return
 
         state_key = self.state.make_key(cid, date_, time_)
@@ -295,7 +324,7 @@ class AutomationEngine:
         #  DUPLICATE PROTECTION 
         if self.state.is_confirmation_sent(state_key):
             logger.info(f"[ENGINE] 🔁 Confirmation already sent for {state_key}. Skipping.")
-            self._mark_notification_sent(cid, date_, time_)
+            self._mark_notification_sent(cid, date_, time_, type_=type_val)
             return
 
         #  PREDICTED vs BOOKED LOGIC 
@@ -304,6 +333,11 @@ class AutomationEngine:
         status_val = row.get("status", "BOOKED").upper() # Default to BOOKED if not present
         
         if type_val == "PREDICTED" and status_val != "CONFIRMED":
+            # If it's a short notice prediction (less than 42h away), handle it NOW.
+            if self._is_short_notice(date_, "10:00 AM"):
+                 logger.info(f"[ENGINE] ⚡ Short-notice prediction: {cid} | {date_}. Handling immediately.")
+                 self._trigger_prediction_confirmation(cid, name, phone, date_, reason)
+                 return
             logger.info(f"[ENGINE] ⏳ Row is PREDICTED/PENDING. Letting scheduler handle it: {cid}")
             return
 
@@ -366,7 +400,7 @@ class AutomationEngine:
             )
             # Initialize state for each predicted date
             for fd in future_dates:
-                pred_key = self.state.make_key(cid, fd, "predicted")
+                pred_key = f"PRED_{cid}_{fd}"
                 self.state.init_prediction(pred_key)
 
             # Step 4 — Inform patient about multi-sitting (still informational)
@@ -489,10 +523,10 @@ class AutomationEngine:
         window_end   = now + timedelta(hours=42)
 
         try:
-            result = self.service.spreadsheets().values().get(
+            result = self._execute_with_retry(self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
                 range=f"{CUSTOMERS_SHEET}!A:K"
-            ).execute()
+            ))
             rows = result.get("values", [])[1:]  # skip header
         except Exception as e:
             logger.error(f"[ENGINE] Failed to read Customers for 36h check: {e}")
@@ -545,14 +579,14 @@ class AutomationEngine:
         Usually ~1.5 days before the predicted date.
         """
         now = datetime.now(ZoneInfo(TIMEZONE))
-        window_start = now + timedelta(hours=30)
-        window_end   = now + timedelta(hours=42)
+        # Window: Anything from "now" up to 42 hours ahead.
+        window_end = now + timedelta(hours=42)
 
         try:
-            result = self.service.spreadsheets().values().get(
+            result = self._execute_with_retry(self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
                 range=f"{CUSTOMERS_SHEET}!A:K"
-            ).execute()
+            ))
             rows = result.get("values", [])[1:]
         except Exception as e:
             logger.error(f"[ENGINE] Failed to read Customers for predictions: {e}")
@@ -589,7 +623,7 @@ class AutomationEngine:
             appt_dt = self._parse_appt_datetime(date_, "10:00 AM")
             if not appt_dt: continue
 
-            if not (window_start <= appt_dt <= window_end):
+            if appt_dt <= now or appt_dt > window_end:
                 continue
 
             # State key for prediction uniqueness (keyed on the actual visit date)
@@ -616,40 +650,57 @@ class AutomationEngine:
             if self.state.get_prediction_status(pred_key) == "DECLINED":
                 continue
 
-            logger.info(f"[ENGINE] 🔮 Prediction Notifier → {name} ({phone}) for {date_}")
-            
-            # Context for WhatsApp reply logic
-            ctx = {
-                "customer_id": cid,
-                "name": name,
-                "future_date": date_,
-                "reason": reason,
-                "pred_key": pred_key
-            }
-            clean_phone = phone.replace("+91", "").replace("+", "").strip()
-            self._pending[clean_phone] = ctx
-            _save_pending(self._pending)
+            # Core trigger logic
+            self._trigger_prediction_confirmation(cid, name, phone, date_, reason, pred_key)
 
-            if send_predicted_appointment_confirmation_request(
-                phone=phone,
-                name=name,
-                treatment=reason,
-                predicted_date=date_
-            ):
-                self.state.set_prediction_message_sent(pred_key)
-                self.state.set_prediction_status(pred_key, "PENDING")
-                # Mark as SENT in sheet (Column K) — search by Col D or Col H
-                row_idx = self._find_prediction_row_flexible(cid, date_)
-                if row_idx:
-                    try:
-                        self.service.spreadsheets().values().update(
-                            spreadsheetId=self.spreadsheet_id,
-                            range=f"{CUSTOMERS_SHEET}!K{row_idx}",
-                            valueInputOption="RAW",
-                            body={"values": [["SENT"]]}
-                        ).execute()
-                    except Exception as ku_e:
-                        logger.error(f"[ENGINE] Failed to mark K{row_idx} SENT: {ku_e}")
+    def _trigger_prediction_confirmation(self, cid, name, phone, date_, reason, pred_key=None):
+        """
+        Sends the Type-C confirmation request and updates state.
+        Safe for both scheduler and immediate (on_new_appointment) calls.
+        """
+        if not pred_key:
+            pred_key = f"PRED_{cid}_{date_}"
+
+        # Duplicate protection
+        if self.state.is_prediction_message_sent(pred_key):
+            return
+
+        logger.info(f"[ENGINE] 🔮 Prediction Notifier → {name} ({phone}) for {date_}")
+        
+        # Context for WhatsApp reply logic
+        ctx = {
+            "customer_id": cid,
+            "name": name,
+            "future_date": date_,
+            "reason": reason,
+            "pred_key": pred_key
+        }
+        clean_phone = phone.replace("+91", "").replace("+", "").strip()
+        self._pending[clean_phone] = ctx
+        _save_pending(self._pending)
+
+        if send_predicted_appointment_confirmation_request(
+            phone=phone,
+            name=name,
+            treatment=reason,
+            predicted_date=date_
+        ):
+            self.state.set_prediction_message_sent(pred_key)
+            self.state.set_prediction_status(pred_key, "PENDING")
+            # Mark as SENT in sheet (Column K)
+            row_idx = self._find_prediction_row_flexible(cid, date_)
+            if row_idx:
+                try:
+                    self._execute_with_retry(self.service.spreadsheets().values().update(
+                        spreadsheetId=self.spreadsheet_id,
+                        range=f"{CUSTOMERS_SHEET}!K{row_idx}",
+                        valueInputOption="RAW",
+                        body={"values": [["SENT"]]}
+                    ))
+                except Exception as ku_e:
+                    logger.error(f"[ENGINE] Failed to mark K{row_idx} SENT: {ku_e}")
+        else:
+            logger.warning(f"[ENGINE] ⚠️ Prediction message failed for {cid} | {date_}. Will retry on next run.")
 
     #  MANAGEMENT Workflows (Batch/Status updates) 
 
@@ -662,10 +713,10 @@ class AutomationEngine:
         """
         logger.info("[ENGINE] 🧹 Running status cleanup (COMPLETED/EXPIRED check)...")
         try:
-            result = self.service.spreadsheets().values().get(
+            result = self._execute_with_retry(self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
                 range=f"{CUSTOMERS_SHEET}!A:K"
-            ).execute()
+            ))
             rows = result.get("values", [])[1:]  # skip header
         except Exception as e:
             logger.error(f"[ENGINE] Failed to read Customers for status cleanup: {e}")
@@ -711,10 +762,10 @@ class AutomationEngine:
         logger.info(f"[ENGINE] 🌅 Sending same-day reminders for {today_str}")
 
         try:
-            result = self.service.spreadsheets().values().get(
+            result = self._execute_with_retry(self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
                 range=f"{CUSTOMERS_SHEET}!A:K"
-            ).execute()
+            ))
             rows = result.get("values", [])[1:]
         except Exception as e:
             logger.error(f"[ENGINE] Failed to read Customers for today: {e}")
@@ -808,7 +859,7 @@ class AutomationEngine:
             if ctx:
                 cid = ctx.get("customer_id")
                 future_date = ctx.get("future_date")
-                row_idx = self._find_prediction_row(cid, future_date)
+                row_idx = self._find_prediction_row_flexible(cid, future_date)
                 if row_idx:
                     self._update_row_status(row_idx, "PREDICTED", "EXPIRED")
                     orig_date = self._get_original_date_for_row(row_idx)
@@ -976,7 +1027,7 @@ class AutomationEngine:
             return
 
         # Find the PREDICTED row for this CID + future_date
-        row_idx = self._find_prediction_row(cid, future_date)
+        row_idx = self._find_prediction_row_flexible(cid, future_date)
         if row_idx:
             logger.info(f"[ENGINE] ✅ YES confirmed: row {row_idx} | {cid} | {future_date} at {appt_time}")
             try:

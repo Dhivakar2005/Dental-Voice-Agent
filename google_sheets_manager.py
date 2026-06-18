@@ -70,6 +70,9 @@ class GoogleSheetsManager:
                 for attempt in range(max_retries):
                     try:
                         creds.refresh(Request())
+                        with open("token.pickle", "wb") as token:
+                            pickle.dump(creds, token)
+                        logger.info("sheets_token_refreshed_and_saved")
                         break
                     except RefreshError as e:
                         logger.warning("sheets_token_refresh_error_invalid_grant", error=str(e))
@@ -91,7 +94,25 @@ class GoogleSheetsManager:
                 creds = flow.run_local_server(port=0)
                 with open("token.pickle", "wb") as token:
                     pickle.dump(creds, token)
-        return build("sheets", "v4", credentials=creds)
+        return build("sheets", "v4", credentials=creds, cache_discovery=False, static_discovery=False)
+
+    def _execute_with_retry(self, request, max_retries=3):
+        """Execute a Google API request with retries for transient SSL/Network errors."""
+        import time
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                return request.execute()
+            except Exception as e:
+                last_err = e
+                err_msg = str(e).lower()
+                transient_patterns = ["ssl", "timeout", "timed out", "eof", "connection reset", "request-sent", "broken pipe", "violation of protocol"]
+                if any(x in err_msg for x in transient_patterns):
+                    logger.warning("transient_api_error_retrying", attempt=attempt+1, error=str(e))
+                    time.sleep(2 * (attempt + 1))
+                    continue
+                raise e
+        raise last_err
 
     def initialize_sheet(self):
 
@@ -106,30 +127,30 @@ class GoogleSheetsManager:
                     if self.spreadsheet_id:
                         try:
                             # Get spreadsheet metadata
-                            spreadsheet = self.service.spreadsheets().get(spreadsheetId=self.spreadsheet_id).execute()
+                            spreadsheet = self._execute_with_retry(self.service.spreadsheets().get(spreadsheetId=self.spreadsheet_id))
                             existing_sheets = [s['properties']['title'] for s in spreadsheet.get('sheets', [])]
                             # Check and add Customers if missing
                             if self.sheet_name not in existing_sheets:
                                 body = {'requests': [{'addSheet': {'properties': {'title': self.sheet_name}}}]}
-                                self.service.spreadsheets().batchUpdate(spreadsheetId=self.spreadsheet_id, body=body).execute()
+                                self._execute_with_retry(self.service.spreadsheets().batchUpdate(spreadsheetId=self.spreadsheet_id, body=body))
                                 headers = [[
                                     'Customer ID', 'Name', 'Phone Number', 
                                     'Appointment Date', 'Appointment Time', 'Appointment Reason', 'Doctor',
                                     'Future Appt Date', 'Type', 'Status', 'WhatsApp Conf'
                                 ]]
-                                self.service.spreadsheets().values().update(
+                                self._execute_with_retry(self.service.spreadsheets().values().update(
                                     spreadsheetId=self.spreadsheet_id,
                                     range=f'{self.sheet_name}!A1:K1',
                                     valueInputOption='RAW',
                                     body={'values': headers}
-                                ).execute()
+                                ))
                                 logger.info("added_missing_sheet", sheet=self.sheet_name)
 
                             # Trigger migration to add Doctor column if missing (Additive)
                             try:
-                                res = self.service.spreadsheets().values().get(
+                                res = self._execute_with_retry(self.service.spreadsheets().values().get(
                                     spreadsheetId=self.spreadsheet_id, range=f'{self.sheet_name}!A1:K1'
-                                ).execute()
+                                ))
                                 h_row = res.get('values', [[]])[0]
                                 if 'Doctor' not in h_row:
                                     self._migrate_to_multi_doctor()
@@ -144,8 +165,8 @@ class GoogleSheetsManager:
                             logger.error("spreadsheet_access_error", error=str(e))
                             logger.warning("spreadsheet_check_internet_or_config")
                             logger.info("spreadsheet_force_new_creation")
-                            self.spreadsheet_id = config.get('spreadsheet_id') 
-                            return
+                            self.spreadsheet_id = None
+                            # Let it fall through to create_customer_sheet
             except Exception as e:
                 logger.error("config_read_error", error=str(e))
         # Only create new if config didn't exist
@@ -163,7 +184,7 @@ class GoogleSheetsManager:
                 }
             ]
         }
-        result = self.service.spreadsheets().create(body=spreadsheet).execute()
+        result = self._execute_with_retry(self.service.spreadsheets().create(body=spreadsheet))
         self.spreadsheet_id = result['spreadsheetId']
         # Save spreadsheet ID to config file for reuse
         import json
@@ -176,12 +197,12 @@ class GoogleSheetsManager:
             'Appointment Time', 'Appointment Reason', 'Doctor',
             'Future Appt Date', 'Type', 'Status', 'WhatsApp Conf'
         ]]
-        self.service.spreadsheets().values().update(
+        self._execute_with_retry(self.service.spreadsheets().values().update(
             spreadsheetId=self.spreadsheet_id,
             range=f'{self.sheet_name}!A1:K1',
             valueInputOption='RAW',
             body={'values': appointment_headers}
-        ).execute()
+        ))
         logger.info("created_new_customer_database", spreadsheet_id=self.spreadsheet_id)
         self.apply_conditional_formatting()
         logger.info("spreadsheet_url", url=f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}")
@@ -578,8 +599,8 @@ class GoogleSheetsManager:
                 "customer_id": customer_id,
                 "name": name,
                 "phone": phone,
-                "appointment_date": appointment_date,
-                "appointment_time": appointment_time,
+                "appointment_date": date,
+                "appointment_time": time,
                 "reason": reason,
                 "timestamp": datetime.now().isoformat()
             })

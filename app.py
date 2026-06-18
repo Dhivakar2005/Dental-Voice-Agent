@@ -3,6 +3,7 @@ import pickle
 import re
 import json
 import time
+import traceback
 from typing import Any
 from datetime import datetime, timedelta, timezone
 import structlog
@@ -48,6 +49,7 @@ from google.auth.transport.requests import Request
 from google.auth.exceptions import RefreshError
 from google_sheets_manager import GoogleSheetsManager
 from vector_db_manager import VectorDBManager
+from language_service import detect_language, get_localized_prompt, format_indian_date, format_indian_time
 
 try:
     import speech_recognition as sr
@@ -56,8 +58,6 @@ except ImportError:
     SPEECH_RECOGNITION_AVAILABLE = False
 
 #  CONFIG
-OLLAMA_BASE_URL          = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL             = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
 SCOPES = [
     "https://www.googleapis.com/auth/calendar",
     "https://www.googleapis.com/auth/spreadsheets",
@@ -66,8 +66,7 @@ TIMEZONE                 = "Asia/Kolkata"
 APPOINTMENT_DURATION_MIN = 10
 SAMPLE_RATE              = 16000
 DURATION                 = 3
-LLM_TIMEOUT_SECONDS      = 10
-# Context window and word count configuration
+# Context window configuration
 LLM_NUM_CTX              = 2048   
 LLM_NUM_PREDICT          = 150    
 OPEN_HOUR                = 9    # 9 AM
@@ -101,30 +100,34 @@ def fast_extract_intent(text):
         for p in patterns:
             if re.search(p, t):
                 return intent
+    
     # Tamil intent patterns (Unicode + transliteration)
     if re.search(
         r'(பதிவு\s+செய்|புக்\s+பண்ண|appointment\s+வேண்டும்|அப்பாயின்மெண்ட்|'
         r'book\s+pannanum|appointment\s+pannanum|panna\s+venum|'
-        r'நியமனம்\s+வேண்டும்|appointment\s+panna\s+venum|'
-        r'pannanum|pannunga)', text
+        r'pannanum|pananun|panren|pannunga|panna|venum|vennum|pannu|pannidu|panniduunga|'
+        r'appointment\s+book\s+pannanum|na\s+appointment|'
+        r'நியமனம்\s+வேண்டும்|appointment\s+panna\s+venum)', text.lower()
     ):
         return 'book'
-    if re.search(r'(ரத்து|cancel\s+பண்ண|நியமனம்\s+ரத்து)', text):
+    if re.search(r'(ரத்து|cancel\s+பண்ண|நியமனம்\s+ரத்து|cancel|rattu|vendam|vendaa|venda)', text.lower()):
         return 'cancel'
-    if re.search(r'(நேரம்\s+மாற்ற|மாற்ற\s+வேண்டும்|reschedule\s+பண்ண|date\s+மாற்ற)', text):
+    if re.search(r'(நேரம்\s+மாற்ற|மாற்ற\s+வேண்டும்|reschedule\s+பண்ண|date\s+மாற்ற|maatra|reschedule|mathu|mathanum|maathanum)', text.lower()):
         return 'reschedule'
-    if re.search(r'(appointment\s+பார்க்க|நியமனம்\s+பார்க்க|எப்போது\s+appointment)', text):
+    if re.search(r'(appointment\s+பார்க்க|நியமனம்\s+பார்க்க|எப்போது\s+appointment|appointment\s+check|paakanum)', text.lower()):
         return 'view_appointments'
+    
     # Hindi intent patterns (Unicode + transliteration)
     if re.search(
         r'(appointment\s+बुक|बुक\s+करन|appointment\s+चाहिए|appointment\s+लेन|'
-        r'book\s+karna|book\s+karo|appointment\s+chahiye|'
-        r'appointment\s+lena|book\s+karein|appointment\s+book)', text
+        r'book\s+karna|krna|book\s+karo|appointment\s+chahiye|'
+        r'appointment\s+book\s+karna\s+hai|m\s+appointment|karo|kar\s+do|'
+        r'appointment\s+lena|book\s+karein|appointment\s+book)', text.lower()
     ):
         return 'book'
-    if re.search(r'(रद्द|cancel\s+करन|appointment\s+रद्द)', text):
+    if re.search(r'(रद्द|cancel\s+करन|appointment\s+रद्द|radd|cancel|nahi|nhi)', text.lower()):
         return 'cancel'
-    if re.search(r'(appointment\s+बदल|समय\s+बदल|reschedule\s+करन)', text):
+    if re.search(r'(appointment\s+बदल|समय\s+बदल|reschedule\s+करन|badalna|reschedule|badlo|badal\s+do)', text.lower()):
         return 'reschedule'
     return None
 
@@ -137,7 +140,7 @@ def fast_patient_type(text):
     """
     t = text.lower().strip()
     words = t.split()
-    if len(words) > 8:
+    if len(words) > 50:
         return None
 
     new_patterns = [
@@ -177,19 +180,20 @@ def fast_patient_type(text):
     if re.match(r'^(old|existing)$', t):
         return 'old'
 
-    # Tamil patient type patterns (Unicode)
-    if re.search(r'(புதிய\s+நோயாளி|புதிய\s+patient|முதல்\s+முறை|pudhiya)', text):
+    # Tamil patient type patterns (Unicode + transliteration)
+    if re.search(r'(புதிய\s+நோயாளி|புதிய\s+patient|முதல்\s+முறை|pudhiya|pudusu|pudhu|fresh|new)', text.lower()):
         return 'new'
     if re.search(
         r'(பழைய\s+நோயாளி|பழைய\s+patient|முன்பு\s+வந்(தேன்|திருக்கிறேன்)|'
-        r'உங்கள்\s+கிளினிக்கின்|முன்னாடி\s+வந்தேன்)', text
+        r'உங்கள்\s+கிளினிக்கின்|முன்னாடி\s+வந்தேன்|pazhaya|palaya|palaiya|palay|'
+        r'already|vandhen|vandhiru|vandhuru|vanthiru|vanthuru)', text.lower()
     ):
         return 'old'
 
-    # Hindi patient type patterns (Unicode)
-    if re.search(r'(नया\s+मरीज|नया\s+patient|पहली\s+बार)', text):
+    # Hindi patient type patterns (Unicode + transliteration)
+    if re.search(r'(नया\s+मरीज|नया\s+patient|पहली\s+বার|naya|new|fresh)', text.lower()):
         return 'new'
-    if re.search(r'(पुराना\s+मरीज|पुराना\s+patient|पहले\s+आया|पहले\s+आई)', text):
+    if re.search(r'(पुराना\s+मरीज|पुराना\s+patient|पहले\s+आया|पहले\s+आई|purana|pehle\s+aya|pehle\s+aya)', text.lower()):
         return 'old'
 
     return None
@@ -211,25 +215,23 @@ def fast_extract_customer_id(text, awaiting=False):
 
 def fast_extract_name(text, awaiting=False):
     t = text.strip()
-    # English: typical introduction phrases
+    # 1. Phonetic/English patterns
+    # Handles: "My name is Dhivakar", "I am Dhivakar", "naa Dhivakar", "en peru Dhivakar", etc.
     m = re.search(
-        r'\b(?:my\s+name\s+is|name\s*[:\-]\s*|this\s+is|call\s+me|name\s+is|i\s*am|i\s*m|myself)\s+([A-Za-z]+(?:\s+[A-Za-z]{2,})?)',
+        r'\b(?:my\s+name\s+is|name\s*[:\-]\s*|this\s+is|call\s+me|name\s+is|i\s*am|i\s*m|myself|naan|naa|na|peru|per|naam|name)\s+([A-Za-z][A-Za-z\s]{1,30})',
         t, re.IGNORECASE
     )
     if m:
         raw_name = m.group(1).strip()
         name_parts = raw_name.split()
-        fillers = {"here", "this", "speaking", "myself", "patient", "is", "a", "calling", "at", "the"}
-        if name_parts and name_parts[0].lower() in fillers:
-            return None
-        name = " ".join(name_parts).strip()
-        while name and len(name.split()[-1]) == 1:
-            words = name.split()
-            name = " ".join(words[:-1]).strip()
-        name = name.title()
+        fillers = {"here", "this", "speaking", "myself", "patient", "is", "a", "calling", "at", "the", "pesugireen", "pesuren", "speak", "bolda", "bol"}
+        while name_parts and name_parts[-1].lower() in fillers:
+            name_parts.pop()
+        if not name_parts: return None
+        name = " ".join(name_parts).strip().title()
         if len(name) >= 2: return name
 
-    # Tamil: "நான் X பேசுகிறேன்" or "என் பெயர் X"
+    # 2. Tamil Unicode Pattern
     m = re.search(
         r'(?:நான்\s+|என்\s+பெயர்\s+|என்னுடைய\s+பெயர்\s+)([A-Za-z][A-Za-z\s]{1,30})(?:\s+பேசுகிறேன்|$)',
         t
@@ -238,7 +240,7 @@ def fast_extract_name(text, awaiting=False):
         name = m.group(1).strip().title()
         if len(name) >= 2: return name
 
-    # Hindi: "मेरा नाम X है" or "मैं X बोल रहा"
+    # 3. Hindi Unicode Pattern
     m = re.search(
         r'(?:मेरा\s+नाम\s+|मैं\s+)([A-Za-z][A-Za-z\s]{1,30})(?:\s+है|\s+बोल\s+रहा|$)',
         t
@@ -275,9 +277,9 @@ def fast_extract_date(text):
     t = text.lower().strip()
     today = datetime.now(get_tz())
 
-    if re.search(r'\btoday\b', t):
+    if re.search(r'\btoday\b', t) or re.search(r'(innikku|inniku|innaku|innaki|aaj)', t):
         return today.strftime("%Y-%m-%d")
-    if re.search(r'\b(tomorrow|tommorow|tommorrow|tomorow)\b', t):
+    if re.search(r'\b(tomorrow|tommorow|tommorrow|tomorow)\b', t) or re.search(r'(naalaikku|naalaki|naalaki|naalai|kal)', t):
         return (today + timedelta(days=1)).strftime("%Y-%m-%d")
     if re.search(r'\bday\s+after\s+(tomorrow|tommorow|tommorrow|tomorow)\b', t):
         return (today + timedelta(days=2)).strftime("%Y-%m-%d")
@@ -420,27 +422,28 @@ def fast_yes_no(text):
         r'\b(yes|yeah|yep|yup|yea|ya|correct|confirm|confirmed|confirming|ok|okay|'
         r'sure|go\s+ahead|proceed|sounds\s+good|right|perfect|'
         r'looks\s+good|book\s+it|book\s+the\s+appointment|do\s+it|fine|'
-        r'absolutely|definitely|please|just\s+do\s+it|that\s+is\s+it)\b', t
+        r'absolutely|definitely|please|just\s+do\s+it|that\s+it|aama|aamaam|haan|ji)\b', t
     ):
         return 'yes'
-    # Tamil yes
-    if re.search(r'(ஆம்|சரி|ஓகே|சரிதான்|ஆமாம்)', text):
+    # Tamil/Tanglish yes
+    if re.search(r'(ஆம்|சரி|ஓகே|சரிதான்|ஆமாம்|aama|aamaam|seri|okay|pannidu|pannunga|panni|pannu|book\s+pannidu|book\s+pannu|confirm\s+pannidu)', text.lower()):
         return 'yes'
-    # Hindi yes
-    if re.search(r'(हाँ|हां|ठीक\s*है|बिल्कुल|हाँ\s*जी)', text):
+    # Hindi/Hindlish yes
+    if re.search(r'(हाँ|हां|ठीक\s*है|बिल्कुल|हाँ\s*जी|haan|theek\s*hai|ji|haan\s*ji|kar\s+do|kar\s+diye|kar\s+dijiye|kar\s+dalo|book\s+kar\s+do)', text.lower()):
         return 'yes'
 
     if re.search(
         r'\b(no|nope|nah|naa|wrong|change|edit|different|incorrect|'
         r'not\s+right|modify|update|fix|cancel\s+that|wait|none|'
-        r'something\s+else|different\s+time|other|other\s+times?)\b', t
+        r'something\s+else|different\s+time|other|other\s+times?|'
+        r'illa|vendam|nahi|nhi)\b', t
     ):
         return 'no'
     # Tamil no
-    if re.search(r'(வேண்டாம்|வேண்டா|இல்லை)', text):
+    if re.search(r'(வேண்டாம்|வேண்டா|இல்லை|illa|vendam|vendaa)', text.lower()):
         return 'no'
     # Hindi no
-    if re.search(r'(नहीं|नही|मत)', text):
+    if re.search(r'(नहीं|नही|मत|nahi|nhi)', text.lower()):
         return 'no'
 
     return None
@@ -546,6 +549,9 @@ class GoogleCalendarManager:
                 for attempt in range(3):
                     try: 
                         creds.refresh(Request())
+                        with open("token.pickle", "wb") as f:
+                            pickle.dump(creds, f)
+                        logger.info("calendar_token_refreshed_and_saved")
                         break
                     except RefreshError as e:
                         logger.warning("token_refresh_error_invalid_grant", error=str(e))
@@ -563,7 +569,7 @@ class GoogleCalendarManager:
                 creds = flow.run_local_server(port=0)
                 with open("token.pickle", "wb") as f:
                     pickle.dump(creds, f)
-        return build("calendar", "v3", credentials=creds)
+        return build("calendar", "v3", credentials=creds, cache_discovery=False, static_discovery=False)
 
     def is_available(self, start_dt, end_dt, customer_id=None):
         res = self.service.events().list(
@@ -598,16 +604,16 @@ class GoogleCalendarManager:
         created = self.service.events().insert(calendarId="primary", body=event).execute()
         return created["id"]
 
-    def find_appointment(self, name, phone, date, time_str=None):
+    def find_appointment(self, name, phone, date, time_str=None, customer_id=None):
         start  = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=get_tz())
         end    = start + timedelta(days=1)
-        # We fetch all events for the day and manually filter to ensure strict phone matching
+        # We fetch all events for the day and manually filter
         events = self.service.events().list(
             calendarId="primary", timeMin=start.isoformat(),
             timeMax=end.isoformat(), singleEvents=True
         ).execute().get("items", [])
         
-        search_phone = str(phone).strip()
+        search_phone = str(phone).strip() if phone else ""
         target_time = None
         if time_str:
             try:
@@ -625,13 +631,23 @@ class GoogleCalendarManager:
 
         for e in events:
             desc = e.get("description", "")
-            # Match strictly on phone number to avoid "ghost" matches from similar names
-            if search_phone in desc:
+            
+            # If customer_id is provided, match on that directly. Otherwise fallback to phone.
+            is_match = False
+            if customer_id and f"Customer ID: {customer_id}" in desc:
+                is_match = True
+            elif search_phone and search_phone in desc:
+                is_match = True
+                
+            if is_match:
                 if target_time:
                     # Double check the start time matches
                     e_start = e.get("start", {}).get("dateTime")
                     if e_start:
+                        # Convert to local time explicitly to avoid UTC mismatch
                         e_dt = datetime.fromisoformat(e_start)
+                        if e_dt.tzinfo is not None:
+                            e_dt = e_dt.astimezone(get_tz())
                         e_time = e_dt.strftime("%I:%M %p").lstrip("0")
                         if e_time != target_time:
                             continue
@@ -663,50 +679,6 @@ class DentalVoiceAgent:
         self.awaiting_field = None
         self.reset_state()
 
-        # FIX 4 — build the static parts of the LLM system prompt once at init.
-        self._llm_base_system = self._build_base_system()
-
-    #  FIX 4: static system prompt fragment (built once, reused every call) 
-    def _build_base_system(self):
-        few_shots = (
-            "EXAMPLES:\n"
-            'User: "I\'m new here." -> {"intent":"book","patient_type":"new"}\n'
-            'User: "i am rahul" -> {"name":"Rahul"}\n'
-            'User: "Yes, confirm the booking." -> {"user_confirmed":true}\n'
-            'User: "Sounds good, go ahead." -> {"user_confirmed":true}\n'
-            'User: "No, I want to change it." -> {"user_rejected":true}\n'
-            'User: "Wrong time, make it 3 PM." -> {"time":"3:00 PM"}\n'
-            'User: "I have a toothache." -> {"intent":"book","reason":"toothache"}\n'
-            'User: "Can I change the time?" -> {"intent":"none","general_answer":"Sure! What should the new time be?"}\n'
-        )
-        return (
-            "You are a strict multilingual clinical assistant for 'Smile Dental' clinic. "
-            "You MUST respond in the same language the user is using (English, Tamil, Hindi, Malayalam, etc.). "
-            "Extract user intents and dental entities into ONLY JSON format. "
-            "HARD CONSTRAINTS:\n"
-            "1. Do NOT hallucinate or guess surnames/last names. Use ONLY the name provided by the user.\n"
-            "2. If intent is unclear (e.g. 'hi' or 'who are you'), return {\"intent\":\"none\"}.\n"
-            "3. Strictly focus on these intents: book, reschedule, cancel, view_appointments.\n"
-            "4. For returning patients, map their phone number into the 'phone' field (10 digits).\n"
-            "5. If the user mentions a date or time, extract it accurately relative to today.\n"
-            "6. If the user's message is a greeting or a question about dental services, provide a SHORT, helpful response in 'general_answer' (limit 20 words).\n"
-            "7. NO SMALL TALK except for 'general_answer'. Return ONLY JSON.\n"
-            f"{few_shots}\n"
-            'REPLY ONLY WITH VALID JSON, no explanation, no markdown:\n'
-            '{"intent":"book|reschedule|cancel|view_appointments|none",'
-            '"patient_type":"new|old|empty",'
-            '"name":"name provided by user or empty",'
-            '"phone":"10 digits or empty",'
-            '"customer_id":"CUST### or empty",'
-            '"date":"YYYY-MM-DD or empty (IF NOT EXPLICITLY STATED)",'
-            '"time":"H:MM AM/PM or empty (IF NOT EXPLICITLY STATED)",'
-            '"new_date":"YYYY-MM-DD or empty (IF NOT EXPLICITLY STATED)",'
-            '"new_time":"H:MM AM/PM or empty (IF NOT EXPLICITLY STATED)",'
-            '"reason":"STRICT 1-3 word dental reason only (e.g. Toothache, Checkup, Braces). NO filler text.",'
-            '"user_confirmed":false,"user_rejected":false,'
-            '"general_answer":"SHORT DENTAL-ONLY ANSWER (NO SMALL TALK) or empty"}'
-        )
-
     def reset_state(self):
         self.state = {
             "intent":               None,
@@ -719,6 +691,7 @@ class DentalVoiceAgent:
             "new_date":             None,
             "new_time":             None,
             "reason":               None,
+            "language":             "en",
             "customer_confirmed":   False,
             "new_patient_greeted":  False,
             "old_appointment_verified": False,
@@ -737,101 +710,131 @@ class DentalVoiceAgent:
             logger.error("time_validation_failed", time_str=t_str, error=str(e))
             return True
 
-    #  FIX 4/5: LLM call — injects only dynamic parts into pre-built base 
+    def _clean_reason(self, reason: str) -> str:
+        """Strip Tamil filler words and common greetings from the reason."""
+        if not reason: return ""
+        # Common Tamil/Tanglish fillers to remove
+        fillers = [
+            r'\bvanthu\b', r'\bvanthuruken\b', r'\bvandhen\b', r'\bvandhuten\b',
+            r'\bnaan\b', r'\bnaa\b', r'\benakku\b', r'\bennaku\b', r'\ben\b',
+            r'\bkonjam\b', r'\bappadiye\b', r'\biruku\b', r'\birukku\b',
+            r'\bromba\b', r'\bnalla\b', r'\bvanakkam\b', r'\bhello\b'
+        ]
+        import re
+        cleaned = reason.lower()
+        for f in fillers:
+            cleaned = re.sub(f, '', cleaned, flags=re.IGNORECASE)
+        
+        # Strip extra whitespace and capitalize
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        # Capitalize first letter of each word for professionalism
+        return cleaned.title() if cleaned else reason
+
+    #  Cloud LLM call — uses Deepgram's OpenAI-compatible API
     def _call_llm(self, text, awaiting_field=None, context="", stream=False):
         today_str = datetime.now(get_tz()).strftime("%Y-%m-%d")
-
-        _FIELD_HINTS = {
-            "patient_type":  "Is the user new or existing/old patient? Reply new or old.",
-            "customer_id":   "Extract customer ID (format CUST###, e.g. CUST001). User may say just the number like '1' or '001'.",
-            "name":          "Extract the patient's full name.",
-            "phone":         "Extract the 10-digit mobile number (digits only).",
-            "date":          f"Extract appointment date as YYYY-MM-DD. Today is {today_str}. Interpret: tomorrow, next Monday, etc.",
-            "time":          "Extract appointment time as H:MM AM/PM.",
-            "new_date":      f"Extract the NEW preferred date for rescheduling as YYYY-MM-DD. Today is {today_str}.",
-            "new_time":      "Extract the NEW preferred time for rescheduling as H:MM AM/PM.",
-            "reason":        "Extract the reason for the dental visit (e.g. checkup, toothache, cleaning).",
-        }
-        hint = ""
-        if awaiting_field and awaiting_field in _FIELD_HINTS:
-            hint = f" FOCUS: {_FIELD_HINTS[awaiting_field]}"
-
-        # Compose final system prompt by injecting dynamic parts into the cached base
+        import openai
+        
+        api_key = os.getenv("DEEPGRAM_API_KEY")
+        deepgram_base = os.getenv("DEEPGRAM_BASE_URL", "https://api.deepgram.com")
+        client = openai.OpenAI(api_key=api_key, base_url=f"{deepgram_base}/v1/openai")
+        # If using Deepgram as the provider for OpenAI-compatible models:
+        # client = openai.OpenAI(api_key=os.getenv("DEEPGRAM_API_KEY"), base_url="https://api.deepgram.com/v1/..." if applicable)
+        
+        # Build rich prompt for cloud LLM (restoring multilingual capability)
+        semantic_rules = (
+            "SEMANTIC EXTRACTION RULES:\n"
+            "1. You are a natively trilingual assistant (English, Tamil, Hindi).\n"
+            "2. Understand romanized phonetic speech (Tanglish/Hindlish) as if it were native script.\n"
+            "3. PHONETIC GLOSSARY:\n"
+            "   - Identity: [en per, en peru, peyar, per, naan, naa, na, mera naam, mera name] -> 'My name is'\n"
+            "   - Intent: [venum, num, pannanum, pananun, panren, pannu, pannidu, kerna, krna, karna, karo, kar do, chahiye, chainye] -> 'Want to book / do'\n"
+            f"   - Patient: [palaya, palay, palaiya, munaadi, old, purana, pehle aya, already, vandhen, vandhiru, vandhuru] -> 'Old'; [pudusu, pudhu, fresh, naya, new] -> 'New'\n"
+            f"   - Days: [inniku, innaki, aaj] -> 'Today'; [naalaiku, naalaki, naaliku, kal] -> 'Tomorrow'\n"
+            "4. NO SMALL TALK except for 'general_answer' (limit 20 words).\n"
+        )
+        
         system = (
-            f"Today: {today_str}.{hint}\n"
-            f"KNOWLEDGE BASE CONTEXT (Use this to answer questions):\n{context}\n\n"
-            + self._llm_base_system
+            f"Today: {today_str}.\n"
+            f"KNOWLEDGE BASE CONTEXT:\n{context}\n\n"
+            "You are a strict multilingual clinical assistant for 'Smile Dental'. "
+            "Extract intents and entities into ONLY JSON format.\n"
+            f"{semantic_rules}\n"
+            "Reply ONLY with valid JSON.\n"
+            'Format: {"intent":"book|reschedule|cancel|view_appointments|none",'
+            '"patient_type":"new|old|empty",'
+            '"name":"...","phone":"...","customer_id":"...","date":"YYYY-MM-DD",'
+            '"time":"H:MM AM/PM","reason":"...","general_answer":"..."}\n'
+            'STRICT RULE FOR REASON: Extract ONLY the medical/dental reason (e.g. "Checkup", "Pain", "Cleaning"). '
+            'Strip all filler words and Tamil greetings (e.g. "Vanthu RegularCheck Up" -> "RegularCheck Up", "Naan Tooth pain" -> "Tooth pain").'
         )
 
         try:
-            _t0 = time.time()
-            resp = requests.post(
-                f"{OLLAMA_BASE_URL}/api/chat",
-                json={
-                    "model":      OLLAMA_MODEL,
-                    "messages":   [{"role": "system", "content": system},
-                                   {"role": "user",   "content": text}],
-                    "stream":     stream,
-                    "keep_alive": -1,
-                    "options":    {
-                        "num_predict": LLM_NUM_PREDICT,
-                        "temperature": 0.1,
-                        "num_ctx":     LLM_NUM_CTX,   # FIX 5 — 1024 prevents prompt truncation
-                        "num_gpu":     -1
-                    },
-                },
-                timeout=LLM_TIMEOUT_SECONDS,
+            resp = client.chat.completions.create(
+                model="gpt-4o-mini", # or gemini-1.5-flash if using a compatible gateway
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": text}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"} if not stream else None,
                 stream=stream
             )
-            _latency_ms = int((time.time() - _t0) * 1000)
-            resp.raise_for_status()
-
-            if stream: return resp
-
-            raw = resp.json()["message"]["content"].strip()
-            raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
-            raw = re.sub(r'```(?:json)?\s*(.*?)\s*```', r'\1', raw, flags=re.DOTALL).strip()
-            match = re.search(r'\{.*\}', raw, re.DOTALL)
-            if not match:
-                logger.warning("llm_no_json_found", raw_response=raw[:200])
-                return None
-            parsed = json.loads(re.sub(r',\s*([}\]])', r'\1', match.group()))
-
-            # Normalise phone
-            if parsed.get("phone"):
-                digits = re.sub(r'[^\d]', '', str(parsed["phone"]))
-                if len(digits) == 12 and digits.startswith('91'): digits = digits[2:]
-                if len(digits) == 11 and digits.startswith('0'):  digits = digits[1:]
-                parsed["phone"] = digits if len(digits) == 10 else ""
-
-            # Normalise customer_id
-            if parsed.get("customer_id"):
-                cid = fast_extract_customer_id(str(parsed["customer_id"]), awaiting=True)
-                parsed["customer_id"] = cid if cid else ""
-
-            # Validate / fallback date fields
-            for k in ("date", "new_date"):
-                if parsed.get(k):
-                    try: datetime.strptime(parsed[k], "%Y-%m-%d")
-                    except: parsed[k] = fast_extract_date(text) or ""
-
-            # Validate / fallback time fields
-            for k in ("time", "new_time"):
-                if parsed.get(k):
-                    norm = fast_extract_time(str(parsed[k])) or fast_extract_time(text)
-                    parsed[k] = norm or ""
             
-            # Clean Reason
+            if stream: return resp
+            
+            raw = resp.choices[0].message.content
+            parsed = json.loads(raw)
+            # Additional logic: Clean the reason field to strip Tamil words
             if parsed.get("reason"):
-                parsed["reason"] = fast_extract_reason(str(parsed["reason"])) or parsed["reason"]
-
-            logger.info("llm_inference_result", latency_ms=_latency_ms, extracted=parsed)
+                parsed["reason"] = self._clean_reason(parsed["reason"])
+            logger.info("cloud_llm_inference_result", extracted=parsed)
             return parsed
-        except requests.exceptions.Timeout:
-            logger.error("llm_timeout")
         except Exception as e:
-            logger.error("llm_error", error=str(e))
-        return None
+            logger.error("cloud_llm_error", error=str(e))
+            return None
+
+    def _call_deepgram_extraction(self, text):
+        """
+        Tier 2 Extraction: Uses Deepgram Nova-3 (extremely fast, low cost).
+        Called if regex extraction fails.
+        """
+        import openai
+        api_key = os.getenv("DEEPGRAM_API_KEY")
+        if not api_key:
+            return None
+            
+        # Use Deepgram's OpenAI-compatible endpoint
+        deepgram_base = os.getenv("DEEPGRAM_BASE_URL", "https://api.deepgram.com")
+        client = openai.OpenAI(
+            api_key=api_key,
+            base_url=f"{deepgram_base}/v1/openai"
+        )
+        
+        system = (
+            "Extract dental clinic appointment details into JSON. "
+            "Fields: intent(book, reschedule, cancel, view_appointments, none), "
+            "patient_type(new, old), name, phone, customer_id, date(YYYY-MM-DD), time(H:MM AM/PM), reason. "
+            "Reply ONLY with JSON."
+        )
+
+        try:
+            resp = client.chat.completions.create(
+                model="nova-3",
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": text}
+                ],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            raw = resp.choices[0].message.content
+            parsed = json.loads(raw)
+            logger.info("deepgram_extraction_result", extracted=parsed)
+            return parsed
+        except Exception as e:
+            logger.error("deepgram_extraction_error", error=str(e))
+            return None
 
     #  STATE HELPERS 
     def _update(self, **kwargs):
@@ -913,6 +916,10 @@ class DentalVoiceAgent:
         intent = self.state.get("intent")
         pt     = self.state.get("patient_type")
 
+        # Only ask for patient details if we actually have an active transactional intent
+        if intent not in ("book", "reschedule", "cancel", "view_appointments"):
+            return []
+
         if not pt:
             return ["patient_type"]
 
@@ -940,31 +947,32 @@ class DentalVoiceAgent:
         return [f for f in fields if not self.state.get(f)]
 
     def _prompt_for(self, field):
+        """
+        Returns a localized prompt for the missing field.
+        """
+        lang = self.state.get("language", "en")
         intent = self.state.get("intent")
-        pt     = self.state.get("patient_type")
 
-        if field == "patient_type":
-            return "Are you a new patient, or have you visited us before? (Existing patient)"
-        if field == "customer_id" and pt == "old":
-            return "Welcome back! Please provide your Customer ID (e.g., CUST001) so I can find your records."
-        if field == "date":
-            if intent == "book":
-                return "On which date would you like to book your appointment? (e.g., Tomorrow, or March 25th)"
-            if self.state.get("old_appointment_not_found"):
-                return self.messages.get("reschedule_not_found")
-            return "What is the date of your existing appointment?"
-        if field == "time":
-            if intent == "book":
-                return "At what time? We are open from 9 AM to 5 PM."
-            if self.state.get("old_appointment_not_found"):
-                return self.messages.get("reschedule_time_not_found")
-            return "What time is your existing appointment?"
-        if field == "new_time" and intent == "reschedule":
-            return "What is the new time for your appointment?"
-        return self.prompts.get(field, f"Please provide your {field}.")
+        # Special handling for rescheduling original vs new slots
+        if intent == "reschedule" and not self.state.get("old_appointment_verified"):
+            if field == "date":
+                return get_localized_prompt("old_date", lang)
+            if field == "time":
+                return get_localized_prompt("old_time", lang)
+        
+        # Special handling for cancellation original slots
+        if intent == "cancel":
+            if field == "date":
+                return get_localized_prompt("cancel_date", lang)
+            if field == "time":
+                return get_localized_prompt("cancel_time", lang)
+
+        # Reuse localized prompts from language_service
+        return get_localized_prompt(field, lang)
 
     def _confirm_prompt(self):
         s = self.state; i = s.get("intent", "")
+        lang = s.get("language", "en")
         # Auto-identify doctor for confirmation
         res = s.get("reason") or ""
         dt = s.get("date") or s.get("new_date")
@@ -979,14 +987,19 @@ class DentalVoiceAgent:
             if s.get("patient_type") == "new" and not s.get("customer_id"):
                 try: s["customer_id"] = self.sheets.generate_customer_id()
                 except Exception: s["customer_id"] = None
-            msg = self.messages.get("confirm_booking")
-            return msg.format(doctor=doctor_name, name=s['name'], date=s['date'], time=s['time'], reason=s['reason'])
+            return get_localized_prompt("confirm_booking", lang, doctor=doctor_name, name=s['name'], date=s['date'], time=s['time'], reason=s['reason'])
 
+        # Simple localized logic for other intents until LOCALIZED_PROMPTS is fully populated
         if i == "reschedule":
+            if lang == "ta": return f"{s['name']}-ன் அப்பாயின்மெண்ட்டை {doctor_name}-டம் {s['new_date']} அன்று {s['new_time']}-க்கு மாற்றவா? ஆம் அல்லது இல்லை என்று சொல்லுங்கள்."
+            if lang == "hi": return f"क्या मैं {s['name']} का अपॉइंटमेंट {doctor_name} के साथ {s['new_date']} को {s['new_time']} पर बदल दूं? हां या ना कहें।"
             return f"Moving {s['name']}'s appointment with {doctor_name} to {s['new_date']} at {s['new_time']}. Say yes or no."
         if i == "cancel":
+            if lang == "ta": return f"{s['name']}-ன் அப்பாயின்மெண்ட்டை {s['date']} அன்று {s['time']}-க்கு ரத்து செய்யவா? ஆம் அல்லது இல்லை என்று சொல்லுங்கள்."
+            if lang == "hi": return f"क्या मैं {s['name']} का अपॉइंटमेंट {s['date']} को {s['time']} पर रद्द कर दूं? हां या ना कहें।"
             return f"Cancelling {s['name']}'s appointment on {s['date']} at {s['time']}. Say yes to confirm or no to cancel."
-        return "Shall I go ahead? Say yes to confirm or no to edit."
+        
+        return get_localized_prompt("confirm_generic", lang) if "confirm_generic" in LOCALIZED_PROMPTS else "Shall I go ahead? Say yes to confirm or no to edit."
 
     #  FAST FIELD EXTRACTION 
     def _extract_fast(self, text):
@@ -1060,11 +1073,29 @@ class DentalVoiceAgent:
             if any(re.search(p, text.lower()) for p in meta_patterns):
                 logger.warning("ignored_meta_command_as_reason", text=text)
                 return found
+            
+            # Strip English, Tanglish, and Hindlish fillers
             stripped = re.sub(
                 r'\b(my|i|the|have|a|an|for|is|need|want|it|reason|visit|'
-                r'because|came|coming|here)\b',
+                r'because|came|coming|here|'
+                r'naan|naa|na|enakku|enaku|ennaku|ungalukku|irukku|iruku|'
+                r'venum|vennum|vendum|pannanum|paakanum|pakknum|kakanum|'
+                r'appointment|book|schedule|checkup|oru|romba|'
+                r'mujhe|mera|meri|humko|hai|hota|hoti|hoga|hogi|chahiye|chaiye|'
+                r'karna|karana|karo|bahut|thora|thoda)\b',
                 '', text.lower()
+            )
+            # Strip Tamil and Hindi unicode fillers
+            stripped = re.sub(
+                r'(எனக்கு|வேண்டும்|உள்ளது|பண்ணனும்|பார்க்கனும்|அப்பாயின்மெண்ட்|'
+                r'எனக்க|என்கு|இருக்கு|பண்ண|பார்க்க|'
+                r'मुझे|है|चाहिए|करना|होता|बहुत)',
+                '', stripped
             ).strip(" .,")
+            
+            # Clean up double spaces
+            stripped = re.sub(r'\s+', ' ', stripped).strip()
+            
             if stripped and len(stripped) > 2:
                 found["reason"] = stripped.title()
 
@@ -1076,13 +1107,7 @@ class DentalVoiceAgent:
     def _try_fast_path(self, text, fast_found):
         """
         Returns (handled: bool, generator_or_none).
-
-        Handles three cases without touching the LLM:
-          A) We're awaiting a specific simple field and regex already extracted it.
-          B) We're in WAITING_CONFIRMATION and fast_yes_no resolves the decision.
-          C) Goodbye / thanks (already handled upstream, kept for safety).
-
-        If handled=True the caller should yield from the returned generator and return.
+        Expects 'text' to be cleaned (stripped of hints).
         """
         af = self.awaiting_field
         
@@ -1191,13 +1216,33 @@ class DentalVoiceAgent:
     #  MAIN RESPONSE GENERATOR
     # ─
     def generate_response(self, text):
+        # 0. Pre-process: Strip internal language hints like [CRITICAL RULE...] 
+        # that server.py appends for the LLM, to prevent breaking regex word-counts.
+        clean_text = re.sub(r'\s*\[.*?\]\s*$', '', text).strip()
+        
+        # 0.1 Detect Language
+        lang = detect_language(clean_text)
+        self.state["language"] = lang
+
         try:
-            fast_found = self._extract_fast(text)
+            # 1. Tier 1: Fast Regex Extraction
+            fast_found = self._extract_fast(clean_text)
+            
+            # 2. Tier 2: Deepgram Extraction Fallback
+            # If Tier 1 failed to find an intent, try Tier 2 (Deepgram)
+            if not fast_found.get("intent") and not self.state.get("intent"):
+                logger.info("triggering_deepgram_fallback")
+                dg_found = self._call_deepgram_extraction(clean_text)
+                if dg_found:
+                    # Merge DG results into fast_found (giving preference to DG over empty regex)
+                    for k, v in dg_found.items():
+                        if v and v not in ("none", "null", "empty"):
+                            fast_found[k] = v
 
             # 1. FAQ short-circuit (fast path — no LLM)
-            # Only trigger FAQ if we don't have an active intent yet.
-            if not self.state.get("intent") and self.awaiting_field not in ("customer_id", "phone", "name"):
-                t_lower = text.lower()
+            # Only trigger FAQ if we don't have an active intent yet and in English.
+            if not self.state.get("intent") and self.awaiting_field not in ("customer_id", "phone", "name") and lang == "en":
+                t_lower = clean_text.lower()
                 for faq in LOGIC.get("faq_database", {}).values():
                     for kw in faq.get("keywords", []):
                         if kw in t_lower:
@@ -1206,7 +1251,7 @@ class DentalVoiceAgent:
                             return
 
             # 2. Goodbye / thanks
-            t_lower = text.lower().strip(" .?!")
+            t_lower = clean_text.lower().strip(" .?!")
             goodbye_patterns = [
                 r'\b(thank|thanks|thank you)\b',
                 r'\b(bye|goodbye|ttyl|see you|nothing else|no more|that is it|that\'s it)\b',
@@ -1215,11 +1260,11 @@ class DentalVoiceAgent:
             ]
             if any(re.search(p, t_lower) for p in goodbye_patterns):
                 self.reset_state()
-                yield from self._stream_string(self.messages.get("goodbye", "Goodbye! Have a great day."))
+                yield from self._stream_string(get_localized_prompt("goodbye", self.state.get("language", "en")))
                 return
 
             #  FIX 1: attempt fast path before calling LLM 
-            handled, gen = self._try_fast_path(text, fast_found)
+            handled, gen = self._try_fast_path(clean_text, fast_found)
             if handled:
                 logger.info("fast_path_resolved", field=self.awaiting_field)
                 yield from gen
@@ -1305,9 +1350,8 @@ class DentalVoiceAgent:
 
                 if not self.state.get("intent"):
                     if llm_data.get("name"):
-                        yield from self._stream_string(
-                            f"Nice to meet you, {llm_data['name']}! How can I help you today?"
-                        )
+                        greet = get_localized_prompt("greeting_with_name", self.state.get("language", "en"), name=llm_data['name']) if "greeting_with_name" in LOCALIZED_PROMPTS else f"Nice to meet you, {llm_data['name']}! How can I help you today?"
+                        yield from self._stream_string(greet)
                         return
                     ga = llm_data.get("general_answer", "")
                     if ga and ga not in ("empty", "none", "null", "Empty", "None"):
@@ -1360,7 +1404,7 @@ class DentalVoiceAgent:
 
                 # Confirmation turn — LLM resolved user_confirmed / user_rejected
                 if self.state.get("workflow_state") == "WAITING_CONFIRMATION":
-                    decision = fast_yes_no(text)
+                    decision = fast_yes_no(clean_text)
                     if llm_data.get("user_confirmed"): decision = "yes"
                     if llm_data.get("user_rejected"):  decision = "no"
 
@@ -1416,7 +1460,7 @@ class DentalVoiceAgent:
                         if re.search(pattern, text_clean):
                             self.awaiting_field = field
                             yield from self._stream_string(
-                                f"Sure! I can update that for you. What should the {field} be?"
+                                get_localized_prompt("field_update", self.state.get("language", "en"), field=field)
                             )
                             return
 
@@ -1426,13 +1470,12 @@ class DentalVoiceAgent:
                         yield from self._stream_string(f"Sure, what should the {field} be?")
                         return
 
-                if len(text_clean) < 4:
                     yield from self._stream_string(
-                        "Hello! I'm here to help with your dental visit. What would you like to do today?"
+                        get_localized_prompt("help_options", self.state.get("language", "en"))
                     )
                     return
 
-                yield from self._stream_string(self.messages.get("did_not_catch"))
+                yield from self._stream_string(get_localized_prompt("did_not_catch", self.state.get("language", "en")))
                 return
 
             missing = self._missing()
@@ -1444,18 +1487,17 @@ class DentalVoiceAgent:
                 if f == "new_patient_greet":
                     self.state["new_patient_greeted"] = True
                     self.awaiting_field = "name"
-                    msg = ("Welcome! Your patient record will be created automatically after "
-                           "your first appointment is booked. " + self._prompt_for("name"))
+                    msg = get_localized_prompt("new_patient_greet", self.state.get("language", "en")) + " " + self._prompt_for("name")
                     yield from self._stream_string(msg)
                     return
 
 
                 prefix = ""
                 if self.state.get("phone_not_found"):
-                    prefix = "I couldn't find a record for that number. Could you check the number, or should we set you up as a new patient? "
+                    prefix = get_localized_prompt("phone_not_found", self.state.get("language", "en"))
                     self.state["phone_not_found"] = False
                 elif self.state.get("welcome_back_pending"):
-                    prefix = f"Welcome back, {self.state['name']}! "
+                    prefix = get_localized_prompt("welcome_back", self.state.get("language", "en"), name=self.state['name'])
                     self.state["welcome_back_pending"] = False
                 
                 yield from self._stream_string(prefix + self._prompt_for(f))
@@ -1621,8 +1663,8 @@ class DentalVoiceAgent:
                     cid, self.state["name"], self.state["phone"],
                     self.state["date"], self.state["time"], self.state.get("reason", "")
                 )
-                date_str = self.state["date"]
-                time_str = self.state["time"]
+                date_str = format_indian_date(self.state["date"])
+                time_str = format_indian_time(self.state["time"])
                 # Removal of self.reset_state() so session persists
                 msg = self.messages.get("appointment_booked")
                 return msg.format(doctor=doctor_name, cid=cid, date=date_str, time=time_str)
@@ -1656,7 +1698,8 @@ class DentalVoiceAgent:
 
         try:
             old = self.calendar.find_appointment(
-                self.state["name"], self.state["phone"], self.state["date"], self.state.get("time")
+                self.state["name"], self.state["phone"], self.state["date"], self.state.get("time"),
+                customer_id=self.state.get("customer_id")
             )
             
             # Fallback to Sheets Search if calendar missed it
@@ -1703,6 +1746,8 @@ class DentalVoiceAgent:
                     reason=reason
                 )
                 nd, nt = self.state["new_date"], self.state["new_time"]
+                nd = format_indian_date(nd)
+                nt = format_indian_time(nt)
                 # Removal of self.reset_state() so session persists
                 msg = self.messages.get("appointment_rescheduled")
                 return msg.format(doctor=doctor_name, date=nd, time=nt)
@@ -1730,7 +1775,8 @@ class DentalVoiceAgent:
     def _cancel(self):
         try:
             event = self.calendar.find_appointment(
-                self.state["name"], self.state["phone"], self.state["date"], self.state.get("time")
+                self.state["name"], self.state["phone"], self.state["date"], self.state.get("time"),
+                customer_id=self.state.get("customer_id")
             )
             if not event: return self.messages.get("appointment_not_found")
             
@@ -1757,7 +1803,7 @@ class DentalVoiceAgent:
                 send_cancellation_notice(self.state["phone"], self.state["name"], self.state["date"])
             except Exception as e:
                 logger.error("cancel_hooks_failed", error=str(e))
-            d = self.state["date"]
+            d = format_indian_date(self.state["date"])
             # Removal of self.reset_state() so session persists
             msg = self.messages.get(
                 "appointment_cancelled",
@@ -1787,7 +1833,7 @@ class DentalVoiceAgent:
             if not upcoming_appts:
                 return self.messages.get("no_appointments")
 
-            lines = [f"{a['appointment_date']} at {a['appointment_time']}" for a in upcoming_appts]
+            lines = [f"{format_indian_date(a['appointment_date'])} at {format_indian_time(a['appointment_time'])}" for a in upcoming_appts]
             # Removal of self.reset_state() so session persists
             msg = self.messages.get(
                 "view_appointments",
@@ -1905,5 +1951,18 @@ class DentalVoiceAgent:
 
 
 if __name__ == "__main__":
-    agent = DentalVoiceAgent(streaming=False)
-    agent.run()
+    try:
+        agent = DentalVoiceAgent(streaming=False)
+        agent.run()
+    except KeyboardInterrupt:
+        print("\nExiting...")
+    except Exception as e:
+        logger.error("fatal_app_error", error=str(e), tb=traceback.format_exc())
+        print(f"\n[CRITICAL ERROR]: {e}")
+        traceback.print_exc()
+    finally:
+        print("\n" + "="*50)
+        try:
+            input("Terminal session finished. Press Enter to close this window...")
+        except (EOFError, KeyboardInterrupt):
+            pass

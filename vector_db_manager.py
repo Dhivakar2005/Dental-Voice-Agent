@@ -12,24 +12,25 @@ load_dotenv()
 
 logger = structlog.get_logger(__name__)
 
-class OllamaEmbeddingFunction:
-    """Custom embedding function to use Ollama's embeddings API."""
-    def __init__(self, model_name: str = "aya-expanse:8b", base_url: str = "http://localhost:11434"):
-        self.model_name = model_name
-        self.base_url = base_url
+class OpenAIEmbeddingFunction:
+    """Connects to OpenAI Cloud Embeddings."""
+    def __init__(self):
+        import openai
+        # Fallback to DEEPGRAM_API_KEY if needed, though usually OpenAI key is preferred for embeddings
+        api_key = os.getenv("DEEPGRAM_API_KEY")
+        deepgram_base = os.getenv("DEEPGRAM_BASE_URL", "https://api.deepgram.com")
+        self.client = openai.OpenAI(api_key=api_key, base_url=f"{deepgram_base}/v1/openai")
 
     def get_embedding(self, text: str) -> List[float]:
         try:
-            resp = requests.post(
-                f"{self.base_url}/api/embeddings",
-                json={"model": self.model_name, "prompt": text},
-                timeout=10
+            resp = self.client.embeddings.create(
+                input=text,
+                model="text-embedding-3-small"
             )
-            resp.raise_for_status()
-            return resp.json()["embedding"]
+            return resp.data[0].embedding
         except Exception as e:
-            logger.error("ollama_embedding_error", error=str(e))
-            return [0.0] * 4096  # aya-expanse:8b (Llama 3 based) default size
+            logger.error("openai_embedding_error", error=str(e))
+            return [0.0] * 1536  # Correct dimension size for OpenAI
 
 class VectorDBManager:
     _instance = None # Singleton
@@ -44,19 +45,28 @@ class VectorDBManager:
         if self._initialized: return
         
         # MongoDB Configuration
-        self.mongo_uri = os.getenv("MONGO_URI", "mongodb+srv://dhikrish42:dhivs4321mdb@cluster.gyo49rj.mongodb.net/?appName=Cluster")
+        self.mongo_uri = os.getenv("MONGO_URI")
         self.db_name   = "dental_assistant"
         self.col_name  = "vector_faq"
         
-        self.client = MongoClient(
-            self.mongo_uri,
-            tls=True,
-            tlsCAFile=certifi.where()
-        )
-        self.db         = self.client[self.db_name]
-        self.collection = self.db[self.col_name]
+        try:
+            self.client = MongoClient(
+                self.mongo_uri,
+                tls=True,
+                tlsCAFile=certifi.where(),
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=5000
+            )
+            self.db         = self.client[self.db_name]
+            self.collection = self.db[self.col_name]
+        except Exception as e:
+            logger.error("vector_db_mongo_connection_error", error=str(e))
+            from database_manager import SafeDatabase, SafeCollection
+            self.client = None
+            self.db = SafeDatabase()
+            self.collection = SafeCollection(self.col_name)
         
-        self.embedding_fn = OllamaEmbeddingFunction()
+        self.embedding_fn = OpenAIEmbeddingFunction()
         self._embedding_cache = {} # Simple LRU-style cache
         self._initialized = True
 
@@ -82,6 +92,7 @@ class VectorDBManager:
                 "text": documents[i],
                 "metadata": metadatas[i] if metadatas else {},
                 "embedding": emb,
+                "embedding_dim": len(emb)
             })
         
         if mongo_docs:
@@ -104,6 +115,16 @@ class VectorDBManager:
         
         if len(embs) == 0:
             return {"documents": [[]]}
+
+        # Dynamically verify and match dimensions to avoid alignment crash
+        db_dim = embs.shape[1]
+        query_dim = len(query_emb)
+        if query_dim != db_dim:
+            logger.warning("embedding_dimension_mismatch", query_dim=query_dim, db_dim=db_dim)
+            if query_dim < db_dim:
+                query_emb = query_emb + [0.0] * (db_dim - query_dim)
+            else:
+                query_emb = query_emb[:db_dim]
 
         # 2. Vectorized Cosine Similarity
         dot_products = np.dot(embs, query_emb)
