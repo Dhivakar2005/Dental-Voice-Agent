@@ -43,25 +43,23 @@ def normalize_time(t_str: str) -> str:
     except Exception:
         return t_str.strip().upper()
 
-# ─
-#  Per-call identity session  (thread-local — fully isolated per Twilio call)
-#  Each Twilio call runs in its own asyncio.run() which creates a new OS thread,
-#  so threading.local() gives every call its own private namespace.
-#  server.py calls reset_patient_session() on each new /media-stream.
-# ─
-_thread_local = threading.local()
+import contextvars
+
+_patient_session_var = contextvars.ContextVar("patient_session", default=None)
 
 def _get_session() -> dict:
-    """Return the thread-local patient session dict, initialising if needed."""
-    if not hasattr(_thread_local, "patient_session"):
-        _thread_local.patient_session = {}
-    return _thread_local.patient_session
+    """Return the context-local patient session dict, initialising if needed."""
+    s = _patient_session_var.get()
+    if s is None:
+        s = {}
+        _patient_session_var.set(s)
+    return s
 
-# All session access goes through _get_session() helper (thread-local per call)
+# All session access goes through _get_session() helper (context-local per call)
 
 def reset_patient_session():
-    """Clear the identity session for the current call thread."""
-    _get_session().clear()
+    """Clear the identity session for the current call."""
+    _patient_session_var.set({})
     logger.info("patient_identity_session_reset")
 
 def get_session_customer_id() -> str | None:
@@ -69,7 +67,7 @@ def get_session_customer_id() -> str | None:
     return _get_session().get("customer_id")
 
 def set_call_language(lang: str) -> None:
-    """Store the detected language for the current call in thread-local session."""
+    """Store the detected language for the current call in session."""
     _get_session()["lang"] = lang
     logger.info("call_language_set", lang=lang)
 
@@ -114,6 +112,32 @@ def _get_agent():
 
 
 # ─
+def _resolve_customer_id(customer_id: str | None) -> str | None:
+    """
+    Safely resolves a customer_id. 
+    If a name is passed (e.g. 'Dhivakar G'), resolves it to the correct customer_id (CUST001).
+    Falls back to the session-stored verified customer_id if needed.
+    """
+    if customer_id:
+        val = str(customer_id).strip()
+        # If it's a name or doesn't have CUST prefix, look it up
+        if not val.upper().startswith("CUST") or " " in val:
+            logger.warning("invalid_customer_id_passed_resolving_by_name", customer_id=customer_id)
+            try:
+                agent = _get_agent()
+                c = agent.sheets.get_customer_by_name(val)
+                if c:
+                    resolved = c.get("customer_id")
+                    logger.info("resolved_customer_id_from_name", name=val, resolved_id=resolved)
+                    return resolved
+            except Exception as ex:
+                logger.error("failed_to_resolve_name_to_customer_id", error=str(ex))
+            return get_session_customer_id()
+        return val
+    return get_session_customer_id()
+
+
+# ─
 #  BOOK APPOINTMENT
 # ─
 def book_appointment(date: str, time: str, reason: str,
@@ -128,8 +152,7 @@ def book_appointment(date: str, time: str, reason: str,
     For NEW patients — call with name + phone:
       book_appointment(name="John", phone="9876543210", date="2026-04-02", time="10:00 AM", reason="checkup")
     """
-    # Prefer session customer_id over argument if available (thread-local)
-    cid = customer_id or get_session_customer_id()
+    cid = _resolve_customer_id(customer_id)
 
     logger.info("tool_called", tool="book_appointment", cid=cid, name=name, phone=phone, date=date, time=time, reason=reason)
     try:
@@ -167,7 +190,7 @@ def reschedule_appointment(customer_id: str = None,
     - WhatsApp notification fires automatically via SheetWatcher → on_appointment_modified
     Requires: customer_id (from thread-local session), old_date, old_time, new_date, new_time.
     """
-    cid = customer_id or get_session_customer_id()  # thread-local session
+    cid = _resolve_customer_id(customer_id)
     if not (cid and old_date and old_time and new_date and new_time):
         return {"error": "Missing required arguments. Need customer_id, old_date, old_time, new_date, and new_time."}
 
@@ -212,7 +235,7 @@ def cancel_appointment(date: str, time: str = None,
     """
     Cancel an appointment. Requires date AND time for precision.
     """
-    cid = customer_id or get_session_customer_id()
+    cid = _resolve_customer_id(customer_id)
     logger.info("tool_called", tool="cancel_appointment", cid=cid, date=date, time=time)
     try:
         agent = _get_agent()

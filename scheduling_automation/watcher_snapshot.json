@@ -254,7 +254,7 @@
     "appointment_time": "2:00 PM",
     "appointment_reason": "Teeth Whitening",
     "doctor": "Dr. Sharma",
-    "future_date": "N/A",
+    "future_date": "2026-06-29",
     "type": "PREDICTED",
     "status": "EXPIRED",
     "whatsapp_conf": "SENT"
@@ -293,7 +293,7 @@
     "appointment_time": "10:00 AM",
     "appointment_reason": "root canal treatment",
     "doctor": "Dr. Kumar",
-    "future_date": "2026-06-23",
+    "future_date": "N/A",
     "type": "PREDICTED",
     "status": "EXPIRED",
     "whatsapp_conf": "SENT"
@@ -311,12 +311,12 @@
     "status": "COMPLETED",
     "whatsapp_conf": "SENT"
   },
-  "CUST001_2026-06-19_04:00 PM": {
+  "CUST001_2026-06-19_4:00 PM": {
     "customer_id": "CUST001",
     "name": "Dhivakar G",
     "phone": "8610080257",
     "appointment_date": "2026-06-19",
-    "appointment_time": "04:00 PM",
+    "appointment_time": "4:00 PM",
     "appointment_reason": "root canal treatment",
     "doctor": "Dr. Kumar",
     "future_date": "2026-06-23",
@@ -324,14 +324,40 @@
     "status": "CONFIRMED",
     "whatsapp_conf": "SENT"
   },
-  "CUST001_2026-06-23_04:00 PM": {
+  "CUST001_2026-06-22_3:00 PM": {
     "customer_id": "CUST001",
     "name": "Dhivakar G",
     "phone": "8610080257",
-    "appointment_date": "2026-06-23",
-    "appointment_time": "04:00 PM",
-    "appointment_reason": "root canal treatment",
-    "doctor": "Dr. Kumar",
+    "appointment_date": "2026-06-22",
+    "appointment_time": "3:00 PM",
+    "appointment_reason": "Tooth Cleaning",
+    "doctor": "Dr. Smith",
+    "future_date": "N/A",
+    "type": "BOOKED",
+    "status": "CONFIRMED",
+    "whatsapp_conf": "SENT"
+  },
+  "CUST001_2026-06-22_10:00 AM": {
+    "customer_id": "CUST001",
+    "name": "Dhivakar G",
+    "phone": "8610080257",
+    "appointment_date": "2026-06-22",
+    "appointment_time": "10:00 AM",
+    "appointment_reason": "teeth whitening",
+    "doctor": "Dr. Sharma",
+    "future_date": "2026-06-29",
+    "type": "BOOKED",
+    "status": "CONFIRMED",
+    "whatsapp_conf": "SENT"
+  },
+  "CUST001_2026-06-29_10:00 AM": {
+    "customer_id": "CUST001",
+    "name": "Dhivakar G",
+    "phone": "8610080257",
+    "appointment_date": "2026-06-29",
+    "appointment_time": "10:00 AM",
+    "appointment_reason": "teeth whitening",
+    "doctor": "Dr. Sharma",
     "future_date": "N/A",
     "type": "PREDICTED",
     "status": "PENDING",

@@ -49,6 +49,7 @@ from language_service import (
 
 #  APP SETUP      
 app = Flask(__name__, static_folder='static', template_folder='templates')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB limit
 sock = Sock(app)   # flask-sock — Twilio Media Streams WebSocket
 
 # every restart and logs out all users.
@@ -243,9 +244,10 @@ async def _handle_function_calls(decoded: dict, sts_ws):
                 await sts_ws.send(json.dumps(inject))
                 logger.info("inject", tool=func_name, spoken=spoken[:80] + "..." if len(spoken) > 80 else spoken)
 
-            # Mute the confirmation in the LLM's response if already injected/spoken to the user
+            # Mute the confirmation in the LLM's response if already injected/spoken to the user.
+            # DO NOT mute verify_patient, because the LLM needs to receive the actual patient record (name, customer_id) to proceed.
             llm_result = result
-            if spoken and not result.get("error"):
+            if spoken and not result.get("error") and func_name != "verify_patient":
                 llm_result = {
                     "status": "success",
                     "message": "already spoken by system",
@@ -371,6 +373,7 @@ async def wrap_task(task_coro, name):
         logger.error(f"task_failed_{name}", error=str(e), traceback=traceback.format_exc())
 
 async def _media_stream_async(sync_ws):
+    reset_patient_session()
     audio_queue     = asyncio.Queue()
     streamsid_queue = asyncio.Queue()
 
@@ -805,7 +808,7 @@ def speech_to_text():
             "Content-Type": audio_file.content_type or "audio/webm"
         }
         
-        response = http_requests.post(url, headers=headers, data=audio_file.read())
+        response = http_requests.post(url, headers=headers, data=audio_file.stream)
         response.raise_for_status()
         
         data = response.json()

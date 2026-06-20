@@ -104,22 +104,22 @@ def send_whatsapp_message(phone: str, message: str) -> bool:
         try:
             resp = requests.post(GRAPH_API_URL, json=payload, headers=headers, timeout=10)
             if resp.status_code == 200:
-                logger.info(f"[WA] ✅ Sent to {to}")
+                logger.info(f"[WA] SUCCESS: Sent to {to}")
                 return True
             else:
-                logger.error(f"[WA] ❌ Failed ({resp.status_code}): {resp.text}")
+                logger.error(f"[WA] FAILED ({resp.status_code}): {resp.text}")
                 return False
         except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
             err_msg = str(e).lower()
             if any(x in err_msg for x in ["bad record mac", "decryption failed", "wrong version"]):
-                logger.warning(f"[WA] ⚠️ SSL/Network error, retrying... (Attempt {attempt+1}/{max_retries})")
+                logger.warning(f"[WA] WARNING: SSL/Network error, retrying... (Attempt {attempt+1}/{max_retries})")
                 import time
                 time.sleep(1)
                 continue
-            logger.error(f"[WA] ❌ Connection error: {e}")
+            logger.error(f"[WA] FAILED: Connection error: {e}")
             return False
         except requests.exceptions.RequestException as e:
-            logger.error(f"[WA] ❌ Request error: {e}")
+            logger.error(f"[WA] FAILED: Request error: {e}")
             return False
     return False
 

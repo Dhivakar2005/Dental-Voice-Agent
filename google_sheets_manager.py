@@ -24,6 +24,30 @@ SCOPES = [
 TIMEZONE = "Asia/Kolkata"
 SPREADSHEET_NAME = "Dental_Customer_Database"
 
+def clean_and_normalize_time(t_str: str) -> str:
+    """Normalize any time format to 'I:MM AM/PM' (e.g., '15:00' -> '3:00 PM', '10:00 AM' -> '10:00 AM')."""
+    if not t_str: return ""
+    t = str(t_str).strip().lower().replace(" ", "")
+    import re
+    # Remove seconds if present (e.g., '15:00:00' -> '15:00')
+    if re.match(r"^\d{1,2}:\d{2}:\d{2}$", t):
+        t = t[:-3]
+    # Insert colon if missing (e.g., '10am' -> '10:00am')
+    if ":" not in t:
+        m = re.match(r"(\d+)(am|pm)", t)
+        if m:
+            h, p = m.groups()
+            t = f"{h}:00{p}"
+    try:
+        if "am" in t or "pm" in t:
+            dt = datetime.strptime(t, "%I:%M%p")
+        else:
+            dt = datetime.strptime(t, "%H:%M")
+        return dt.strftime("%I:%M %p").lstrip("0")
+    except Exception:
+        return t_str.strip().upper()
+
+
 class GoogleSheetsManager:
     """Manages customer data in Google Sheets"""
     _instance = None
@@ -452,6 +476,7 @@ class GoogleSheetsManager:
             return
 
         try:
+            time = clean_and_normalize_time(time)
             #  Read current sheet for duplicate / prediction checks ─
             result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
@@ -710,7 +735,7 @@ class GoogleSheetsManager:
             # Normalize inputs
             search_id   = str(customer_id).strip().upper() if customer_id else ""
             search_date = str(date).strip()
-            search_time = str(time).strip().upper()
+            search_time = clean_and_normalize_time(time).upper()
             search_name = str(name).strip().upper() if name else None
 
             logger.debug("searching_for_appointment", id=search_id, date=search_date, time=search_time)
@@ -727,7 +752,7 @@ class GoogleSheetsManager:
                 row_id   = str(row[0]).strip().upper()
                 row_name = str(row[1]).strip().upper()
                 row_date = str(row[3]).strip()
-                row_time = str(row[4]).strip().upper()
+                row_time = clean_and_normalize_time(row[4]).upper()
 
                 id_match   = (row_id == search_id) if search_id else True
                 date_match = (row_date == search_date)
@@ -773,6 +798,8 @@ class GoogleSheetsManager:
     def update_appointment(self, customer_id, old_date, old_time, new_date, new_time, name=None, phone=None, reason=None):
         """Update a specific appointment row (for rescheduling)"""
         try:
+            old_time = clean_and_normalize_time(old_time)
+            new_time = clean_and_normalize_time(new_time)
             row_num = self.find_appointment_row(customer_id, old_date, old_time, name=name, phone=phone)
             if not row_num:
                 # If name or phone was provided, try one more time without them if that failed

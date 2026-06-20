@@ -78,7 +78,7 @@
                         "properties": {
                             "customer_id": {
                                 "type": "string",
-                                "description": "Verified customer ID"
+                                "description": "Verified patient customer ID (e.g., CUST001). NEVER pass the patient name here."
                             },
                             "name": {
                                 "type": "string",
@@ -116,7 +116,7 @@
                         "properties": {
                             "customer_id": {
                                 "type": "string",
-                                "description": "Verified customer ID"
+                                "description": "Verified patient customer ID (e.g., CUST001). NEVER pass the patient name here."
                             },
                             "old_date": {
                                 "type": "string",
@@ -151,7 +151,7 @@
                         "properties": {
                             "customer_id": {
                                 "type": "string",
-                                "description": "Verified customer ID"
+                                "description": "Verified patient customer ID (e.g., CUST001). NEVER pass the patient name here."
                             },
                             "date": {
                                 "type": "string",
